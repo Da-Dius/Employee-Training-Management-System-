@@ -1,109 +1,111 @@
+const mongoose = require('mongoose');
+const crypto = require('node:crypto');
 const path = require('node:path');
 const fs = require('node:fs');
-const crypto = require('node:crypto');
-const { DatabaseSync } = require('node:sqlite');
 
-// DATA_DIR points at a persistent disk mount in production (e.g. on Render). Left unset,
-// everything stays right where it's always been for local dev — no behavior change.
-const DATA_DIR = process.env.DATA_DIR ? path.resolve(process.env.DATA_DIR) : null;
-const dbPath = DATA_DIR ? path.join(DATA_DIR, 'hrms.sqlite') : path.join(__dirname, 'hrms.sqlite');
-const uploadsDir = DATA_DIR ? path.join(DATA_DIR, 'uploads') : path.join(__dirname, '..', 'uploads');
 
-if (DATA_DIR) fs.mkdirSync(DATA_DIR, { recursive: true });
+require('node:dns/promises').setServers(['1.1.1.1', '8.8.8.8']);
+
+const uploadsDir = path.join(__dirname, '..', 'uploads');
 fs.mkdirSync(uploadsDir, { recursive: true });
 
-const db = new DatabaseSync(dbPath);
 
-db.exec(`
-  PRAGMA foreign_keys = ON;
+const MONGODB_URI = process.env.MONGODB_URI;
 
-  CREATE TABLE IF NOT EXISTS trainings (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    category TEXT NOT NULL,
-    training_date TEXT NOT NULL,
-    venue TEXT,
-    cost REAL NOT NULL DEFAULT 0,
-    paid INTEGER NOT NULL DEFAULT 0,
-    per_diem INTEGER NOT NULL DEFAULT 0,
-    description TEXT,
-    created_at TEXT NOT NULL DEFAULT (datetime('now')),
-    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-  );
+if (!MONGODB_URI) {
+  throw new Error('MONGODB_URI is not set. Add it to your environment (.env locally, Render dashboard in production).');
+}
 
-  CREATE TABLE IF NOT EXISTS nominees (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    training_id INTEGER NOT NULL REFERENCES trainings(id) ON DELETE CASCADE,
-    name TEXT NOT NULL,
-    employee_number TEXT NOT NULL,
-    department TEXT,
-    division TEXT,
-    section TEXT,
-    station_region TEXT,
-    email TEXT,
-    attendance_status TEXT NOT NULL DEFAULT 'Pending',
-    employee_confirmed INTEGER NOT NULL DEFAULT 0,
-    confirmation_token TEXT UNIQUE,
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))
-  );
+mongoose.connect(MONGODB_URI)
+  .then(() => console.log('MongoDB connected'))
+  .catch((err) => {
+    console.error('MongoDB connection error:', err);
+    process.exit(1);
+  });
 
-  CREATE TABLE IF NOT EXISTS evidence (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    training_id INTEGER NOT NULL REFERENCES trainings(id) ON DELETE CASCADE,
-    filename TEXT NOT NULL,
-    original_name TEXT NOT NULL,
-    size INTEGER,
-    uploaded_at TEXT NOT NULL DEFAULT (datetime('now'))
-  );
+const { Schema } = mongoose;
 
-  CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    username TEXT NOT NULL UNIQUE,
-    name TEXT NOT NULL,
-    password_hash TEXT NOT NULL,
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))
-  );
+// ---------- Schemas ----------
 
-  CREATE TABLE IF NOT EXISTS settings (
-    key TEXT PRIMARY KEY,
-    value TEXT NOT NULL
-  );
+const trainingSchema = new Schema({
+  name: { type: String, required: true },
+  category: { type: String, required: true },
+  trainingDate: { type: String, required: true },
+  venue: String,
+  cost: { type: Number, required: true, default: 0 },
+  paid: { type: Boolean, default: false },
+  perDiem: { type: Boolean, default: false },
+  description: String,
+}, { timestamps: true });
 
-  CREATE TABLE IF NOT EXISTS sessions (
-    sid TEXT PRIMARY KEY,
-    session_json TEXT NOT NULL,
-    expires_at INTEGER NOT NULL
-  );
+const nomineeSchema = new Schema({
+  training: { type: Schema.Types.ObjectId, ref: 'Training', required: true },
+  name: { type: String, required: true },
+  employeeNumber: { type: String, required: true },
+  department: String,
+  division: String,
+  section: String,
+  stationRegion: String,
+  email: String,
+  attendanceStatus: { type: String, default: 'Pending' },
+  employeeConfirmed: { type: Boolean, default: false },
+  confirmationToken: { type: String, unique: true, sparse: true }, // sparse allows many nulls
+}, { timestamps: { createdAt: true, updatedAt: false } });
 
-  CREATE INDEX IF NOT EXISTS idx_nominees_training ON nominees(training_id);
-  CREATE INDEX IF NOT EXISTS idx_evidence_training ON evidence(training_id);
-  CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);
-`);
+const evidenceSchema = new Schema({
+  training: { type: Schema.Types.ObjectId, ref: 'Training', required: true },
+  filename: { type: String, required: true },
+  originalName: { type: String, required: true },
+  size: Number,
+}, { timestamps: { createdAt: 'uploadedAt', updatedAt: false } });
+
+const userSchema = new Schema({
+  username: { type: String, required: true, unique: true },
+  name: { type: String, required: true },
+  passwordHash: { type: String, required: true },
+}, { timestamps: { createdAt: true, updatedAt: false } });
+
+const settingSchema = new Schema({
+  key: { type: String, required: true, unique: true },
+  value: { type: String, required: true },
+});
+
+// Note: no Session schema here — connect-mongo manages the sessions collection itself.
+
+// ---------- Models ----------
+
+const Training = mongoose.model('Training', trainingSchema);
+const Nominee = mongoose.model('Nominee', nomineeSchema);
+const Evidence = mongoose.model('Evidence', evidenceSchema);
+const User = mongoose.model('User', userSchema);
+const Setting = mongoose.model('Setting', settingSchema);
+
+// ---------- Helpers (same interface as before, now async) ----------
 
 function genToken() {
   return crypto.randomBytes(16).toString('hex');
 }
 
-function getSetting(key) {
-  return db.prepare('SELECT value FROM settings WHERE key = ?').get(key)?.value;
+async function getSetting(key) {
+  const doc = await Setting.findOne({ key });
+  return doc?.value;
 }
 
-function setSetting(key, value) {
-  db.prepare(`
-    INSERT INTO settings (key, value) VALUES (?, ?)
-    ON CONFLICT(key) DO UPDATE SET value = excluded.value
-  `).run(key, value);
+async function setSetting(key, value) {
+  await Setting.findOneAndUpdate(
+    { key },
+    { value },
+    { upsert: true }
+  );
 }
 
-function getOrCreateSetting(key, factory) {
-  const existing = getSetting(key);
+async function getOrCreateSetting(key, factory) {
+  const existing = await getSetting(key);
   if (existing !== undefined) return existing;
   const value = factory();
-  setSetting(key, value);
+  await setSetting(key, value);
   return value;
 }
-
-const sessionSecret = getOrCreateSetting('session_secret', () => crypto.randomBytes(32).toString('hex'));
 
 const INVITE_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O/1/I to avoid ambiguity
 
@@ -116,13 +118,13 @@ function generateInviteCode() {
   return code;
 }
 
-function getInviteCode() {
+async function getInviteCode() {
   return getOrCreateSetting('invite_code', generateInviteCode);
 }
 
-function regenerateInviteCode() {
+async function regenerateInviteCode() {
   const code = generateInviteCode();
-  setSetting('invite_code', code);
+  await setSetting('invite_code', code);
   return code;
 }
 
@@ -139,13 +141,24 @@ function verifyPassword(password, storedHash) {
   return candidate.length === expected.length && crypto.timingSafeEqual(candidate, expected);
 }
 
+// sessionSecret used to be computed once at startup (synchronously). Since Mongo access
+// is now async, server.js needs to await this before starting the app — see note below.
+async function initSessionSecret() {
+  return getOrCreateSetting('session_secret', () => crypto.randomBytes(32).toString('hex'));
+}
+
 module.exports = {
-  db,
+  mongoose,
   uploadsDir,
+  Training,
+  Nominee,
+  Evidence,
+  User,
+  Setting,
   genToken,
   hashPassword,
   verifyPassword,
-  sessionSecret,
+  initSessionSecret,
   getInviteCode,
   regenerateInviteCode,
 };

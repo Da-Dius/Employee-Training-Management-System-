@@ -1,22 +1,23 @@
 const express = require('express');
-const { db } = require('../db/database');
+const { Training, Nominee } = require('../db/database');
 
 const router = express.Router();
 
-router.get('/', (req, res) => {
+function asyncHandler(fn) {
+  return (req, res, next) => fn(req, res, next).catch(next);
+}
+
+router.get('/', asyncHandler(async (req, res) => {
   const today = new Date().toISOString().slice(0, 10);
 
-  const totalTrainings = db.prepare('SELECT COUNT(*) AS c FROM trainings').get().c;
-  const upcomingTrainings = db
-    .prepare('SELECT COUNT(*) AS c FROM trainings WHERE training_date >= ?')
-    .get(today).c;
-  const completedTrainings = db
-    .prepare('SELECT COUNT(*) AS c FROM trainings WHERE training_date < ?')
-    .get(today).c;
-  const totalNominees = db.prepare('SELECT COUNT(*) AS c FROM nominees').get().c;
-  const totalAttendees = db
-    .prepare("SELECT COUNT(*) AS c FROM nominees WHERE attendance_status = 'Attended'")
-    .get().c;
+  const [totalTrainings, upcomingTrainings, completedTrainings, totalNominees, totalAttendees] =
+    await Promise.all([
+      Training.countDocuments(),
+      Training.countDocuments({ trainingDate: { $gte: today } }),
+      Training.countDocuments({ trainingDate: { $lt: today } }),
+      Nominee.countDocuments(),
+      Nominee.countDocuments({ attendanceStatus: 'Attended' }),
+    ]);
 
   res.json({
     totalTrainings,
@@ -25,6 +26,6 @@ router.get('/', (req, res) => {
     totalNominees,
     totalAttendees,
   });
-});
+}));
 
 module.exports = router;

@@ -3,10 +3,33 @@ const path = require('node:path');
 const fs = require('node:fs');
 const crypto = require('node:crypto');
 const multer = require('multer');
-const { db, uploadsDir } = require('../db/database');
+const { mongoose, Training, Evidence, uploadsDir } = require('../db/database');
 
 const router = express.Router({ mergeParams: true });
 
+function asyncHandler(fn) {
+  return (req, res, next) => fn(req, res, next).catch(next);
+}
+
+function isValidId(id) {
+  return mongoose.Types.ObjectId.isValid(id);
+}
+
+// Keeps the same snake_case JSON shape the frontend already expects.
+function serialize(doc) {
+  return {
+    id: doc._id,
+    training_id: doc.training,
+    filename: doc.filename,
+    original_name: doc.originalName,
+    size: doc.size,
+    uploaded_at: doc.uploadedAt,
+  };
+}
+
+// NOTE: this still writes to local disk (uploadsDir), same as before. On Render's free
+// tier this won't persist across redeploys/restarts — that's the R2 migration, coming next.
+// Nothing below in this block changes for that migration except `destination`.
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, uploadsDir),
   filename: (req, file, cb) => {
@@ -46,51 +69,55 @@ const upload = multer({
 });
 
 // GET /api/trainings/:trainingId/evidence
-router.get('/', (req, res) => {
-  const rows = db
-    .prepare('SELECT * FROM evidence WHERE training_id = ? ORDER BY uploaded_at DESC')
-    .all(req.params.trainingId);
-  res.json(rows);
-});
+router.get('/', asyncHandler(async (req, res) => {
+  if (!isValidId(req.params.trainingId)) return res.json([]);
+  const docs = await Evidence.find({ training: req.params.trainingId }).sort({ uploadedAt: -1 });
+  res.json(docs.map(serialize));
+}));
 
 // POST /api/trainings/:trainingId/evidence  (multipart/form-data, field name "files", multiple allowed)
-router.post('/', upload.array('files', 10), (req, res) => {
-  const training = db.prepare('SELECT id FROM trainings WHERE id = ?').get(req.params.trainingId);
+router.post('/', upload.array('files', 10), asyncHandler(async (req, res) => {
+  if (!isValidId(req.params.trainingId)) return res.status(404).json({ error: 'Training not found' });
+  const training = await Training.findById(req.params.trainingId).select('_id');
   if (!training) return res.status(404).json({ error: 'Training not found' });
 
   const files = req.files || [];
-  const insert = db.prepare(`
-    INSERT INTO evidence (training_id, filename, original_name, size)
-    VALUES (?, ?, ?, ?)
-  `);
 
-  const inserted = files.map((f) => {
-    const info = insert.run(req.params.trainingId, f.filename, f.originalname, f.size);
-    return db.prepare('SELECT * FROM evidence WHERE id = ?').get(info.lastInsertRowid);
-  });
+  const inserted = await Promise.all(
+    files.map((f) =>
+      Evidence.create({
+        training: req.params.trainingId,
+        filename: f.filename,
+        originalName: f.originalname,
+        size: f.size,
+      })
+    )
+  );
 
-  res.status(201).json(inserted);
-});
+  res.status(201).json(inserted.map(serialize));
+}));
 
 // GET /api/trainings/:trainingId/evidence/:evidenceId/download
-router.get('/:evidenceId/download', (req, res) => {
-  const row = db
-    .prepare('SELECT * FROM evidence WHERE id = ? AND training_id = ?')
-    .get(req.params.evidenceId, req.params.trainingId);
-  if (!row) return res.status(404).json({ error: 'Evidence not found' });
+router.get('/:evidenceId/download', asyncHandler(async (req, res) => {
+  if (!isValidId(req.params.trainingId) || !isValidId(req.params.evidenceId)) {
+    return res.status(404).json({ error: 'Evidence not found' });
+  }
+  const doc = await Evidence.findOne({ _id: req.params.evidenceId, training: req.params.trainingId });
+  if (!doc) return res.status(404).json({ error: 'Evidence not found' });
 
-  res.download(path.join(uploadsDir, row.filename), row.original_name);
-});
+  res.download(path.join(uploadsDir, doc.filename), doc.originalName);
+}));
 
-router.delete('/:evidenceId', (req, res) => {
-  const row = db
-    .prepare('SELECT * FROM evidence WHERE id = ? AND training_id = ?')
-    .get(req.params.evidenceId, req.params.trainingId);
-  if (!row) return res.status(404).json({ error: 'Evidence not found' });
+router.delete('/:evidenceId', asyncHandler(async (req, res) => {
+  if (!isValidId(req.params.trainingId) || !isValidId(req.params.evidenceId)) {
+    return res.status(404).json({ error: 'Evidence not found' });
+  }
+  const doc = await Evidence.findOne({ _id: req.params.evidenceId, training: req.params.trainingId });
+  if (!doc) return res.status(404).json({ error: 'Evidence not found' });
 
-  db.prepare('DELETE FROM evidence WHERE id = ?').run(req.params.evidenceId);
-  fs.unlink(path.join(uploadsDir, row.filename), () => {});
+  await Evidence.deleteOne({ _id: req.params.evidenceId });
+  fs.unlink(path.join(uploadsDir, doc.filename), () => { });
   res.status(204).end();
-});
+}));
 
 module.exports = router;

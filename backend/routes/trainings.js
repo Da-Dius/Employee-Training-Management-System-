@@ -1,128 +1,129 @@
 const express = require('express');
 const path = require('node:path');
 const fs = require('node:fs');
-const { db, uploadsDir } = require('../db/database');
+const { mongoose, Training, Nominee, Evidence, uploadsDir } = require('../db/database');
 
 const router = express.Router();
+
+function asyncHandler(fn) {
+  return (req, res, next) => fn(req, res, next).catch(next);
+}
 
 function trainingStatus(dateStr) {
   const today = new Date().toISOString().slice(0, 10);
   return dateStr >= today ? 'Upcoming' : 'Completed';
 }
 
-function serializeTraining(row) {
+
+function serializeTraining(doc) {
   return {
-    ...row,
-    paid: !!row.paid,
-    per_diem: !!row.per_diem,
-    status: trainingStatus(row.training_date),
+    id: doc._id,
+    name: doc.name,
+    category: doc.category,
+    training_date: doc.trainingDate,
+    venue: doc.venue,
+    cost: doc.cost,
+    paid: !!doc.paid,
+    per_diem: !!doc.perDiem,
+    description: doc.description,
+    status: trainingStatus(doc.trainingDate),
+    created_at: doc.createdAt,
+    updated_at: doc.updatedAt,
   };
 }
 
-// GET /api/trainings?name=&category=&date=&department=
-router.get('/', (req, res) => {
+
+router.get('/', asyncHandler(async (req, res) => {
   const { name, category, date, department } = req.query;
 
-  let sql = 'SELECT * FROM trainings WHERE 1=1';
-  const params = [];
+  const filter = {};
+  if (name) filter.name = { $regex: name, $options: 'i' };
+  if (category) filter.category = category;
+  if (date) filter.trainingDate = date;
 
-  if (name) {
-    sql += ' AND name LIKE ?';
-    params.push(`%${name}%`);
-  }
-  if (category) {
-    sql += ' AND category = ?';
-    params.push(category);
-  }
-  if (date) {
-    sql += ' AND training_date = ?';
-    params.push(date);
-  }
   if (department) {
-    sql += ` AND id IN (SELECT training_id FROM nominees WHERE department LIKE ?)`;
-    params.push(`%${department}%`);
+
+    const matches = await Nominee.find({ department: { $regex: department, $options: 'i' } }).select('training');
+    const trainingIds = [...new Set(matches.map((n) => n.training.toString()))];
+    filter._id = { $in: trainingIds };
   }
 
-  sql += ' ORDER BY training_date DESC';
+  const trainings = await Training.find(filter).sort({ trainingDate: -1 });
+  res.json(trainings.map(serializeTraining));
+}));
 
-  const rows = db.prepare(sql).all(...params);
-  res.json(rows.map(serializeTraining));
-});
+router.get('/:id', asyncHandler(async (req, res) => {
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+    return res.status(404).json({ error: 'Training not found' });
+  }
+  const training = await Training.findById(req.params.id);
+  if (!training) return res.status(404).json({ error: 'Training not found' });
+  res.json(serializeTraining(training));
+}));
 
-router.get('/:id', (req, res) => {
-  const row = db.prepare('SELECT * FROM trainings WHERE id = ?').get(req.params.id);
-  if (!row) return res.status(404).json({ error: 'Training not found' });
-  res.json(serializeTraining(row));
-});
-
-router.post('/', (req, res) => {
+router.post('/', asyncHandler(async (req, res) => {
   const { name, category, training_date, venue, cost, paid, per_diem, description } = req.body;
 
   if (!name || !category || !training_date) {
     return res.status(400).json({ error: 'name, category and training_date are required' });
   }
 
-  const stmt = db.prepare(`
-    INSERT INTO trainings (name, category, training_date, venue, cost, paid, per_diem, description)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `);
-  const info = stmt.run(
+  const training = await Training.create({
     name,
     category,
-    training_date,
-    venue || null,
-    Number(cost) || 0,
-    paid ? 1 : 0,
-    per_diem ? 1 : 0,
-    description || null
-  );
+    trainingDate: training_date,
+    venue: venue || undefined,
+    cost: Number(cost) || 0,
+    paid: !!paid,
+    perDiem: !!per_diem,
+    description: description || undefined,
+  });
 
-  const row = db.prepare('SELECT * FROM trainings WHERE id = ?').get(info.lastInsertRowid);
-  res.status(201).json(serializeTraining(row));
-});
+  res.status(201).json(serializeTraining(training));
+}));
 
-router.put('/:id', (req, res) => {
-  const existing = db.prepare('SELECT * FROM trainings WHERE id = ?').get(req.params.id);
+router.put('/:id', asyncHandler(async (req, res) => {
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+    return res.status(404).json({ error: 'Training not found' });
+  }
+  const existing = await Training.findById(req.params.id);
   if (!existing) return res.status(404).json({ error: 'Training not found' });
 
   const { name, category, training_date, venue, cost, paid, per_diem, description } = req.body;
 
-  db.prepare(`
-    UPDATE trainings SET
-      name = ?, category = ?, training_date = ?, venue = ?, cost = ?, paid = ?, per_diem = ?, description = ?,
-      updated_at = datetime('now')
-    WHERE id = ?
-  `).run(
-    name ?? existing.name,
-    category ?? existing.category,
-    training_date ?? existing.training_date,
-    venue ?? existing.venue,
-    cost !== undefined ? Number(cost) : existing.cost,
-    paid !== undefined ? (paid ? 1 : 0) : existing.paid,
-    per_diem !== undefined ? (per_diem ? 1 : 0) : existing.per_diem,
-    description ?? existing.description,
-    req.params.id
-  );
+  existing.name = name ?? existing.name;
+  existing.category = category ?? existing.category;
+  existing.trainingDate = training_date ?? existing.trainingDate;
+  existing.venue = venue ?? existing.venue;
+  existing.cost = cost !== undefined ? Number(cost) : existing.cost;
+  existing.paid = paid !== undefined ? !!paid : existing.paid;
+  existing.perDiem = per_diem !== undefined ? !!per_diem : existing.perDiem;
+  existing.description = description ?? existing.description;
 
-  const row = db.prepare('SELECT * FROM trainings WHERE id = ?').get(req.params.id);
-  res.json(serializeTraining(row));
-});
+  await existing.save();
 
-router.delete('/:id', (req, res) => {
-  const existing = db.prepare('SELECT * FROM trainings WHERE id = ?').get(req.params.id);
+  res.json(serializeTraining(existing));
+}));
+
+router.delete('/:id', asyncHandler(async (req, res) => {
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+    return res.status(404).json({ error: 'Training not found' });
+  }
+  const existing = await Training.findById(req.params.id);
   if (!existing) return res.status(404).json({ error: 'Training not found' });
 
-  const evidenceFiles = db
-    .prepare('SELECT filename FROM evidence WHERE training_id = ?')
-    .all(req.params.id);
+  const evidenceFiles = await Evidence.find({ training: existing._id }).select('filename');
 
-  db.prepare('DELETE FROM trainings WHERE id = ?').run(req.params.id);
+
+  await Training.deleteOne({ _id: existing._id });
+  await Nominee.deleteMany({ training: existing._id });
+  await Evidence.deleteMany({ training: existing._id });
 
   evidenceFiles.forEach((row) => {
-    fs.unlink(path.join(uploadsDir, row.filename), () => {});
+    fs.unlink(path.join(uploadsDir, row.filename), () => { });
   });
 
   res.status(204).end();
-});
+}));
 
 module.exports = router;
