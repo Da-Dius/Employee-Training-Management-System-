@@ -51,19 +51,19 @@ cd backend
 npm install
 npm start
 
-# terminal 2 — React app on :5173, with hot reload
+# terminal 2 — React app on :5173
 cd frontend
 npm install
 npm run dev
-```
+
 
 Open **http://localhost:5173** — the Vite dev server proxies `/api/*` and `/confirm.html`
-to the backend on :3000, so you only ever need to open the :5173 URL while developing.
+to the backend on :3000, so you only ever need to open the :5173 URL(development).
 
-### Production (one process)
+### Production
 
-```bash
-# build the frontend once
+
+# build the frontend
 cd frontend
 npm install
 npm run build
@@ -116,21 +116,6 @@ the self-confirmation note below). Instead:
   ```
 
 ## Deployment (Render)
-
-The repo includes a `render.yaml` Blueprint, so Render can configure the service
-automatically — or set it up by hand. Either way:
-
-### Option A — Blueprint (automatic)
-
-1. Push this repo to GitHub (or GitLab).
-2. In the Render dashboard: **New → Blueprint**, connect the repo. Render reads
-   `render.yaml` from the repo root and pre-fills the service: build command, start
-   command, the persistent disk, and env vars (`NODE_ENV`, `DATA_DIR`, and a
-   generated `SESSION_SECRET`).
-3. Click **Apply** / **Create**. First deploy takes a few minutes (it runs
-   `npm install` + `npm run build` for the frontend, then `npm install` for the backend).
-
-### Option B — Manual web service
 
 1. Push this repo to GitHub (or GitLab).
 2. Render dashboard: **New → Web Service**, connect the repo.

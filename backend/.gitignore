@@ -2,3 +2,4 @@ node_modules/
 db/hrms.sqlite
 uploads/*
 !uploads/.gitkeep
+.env

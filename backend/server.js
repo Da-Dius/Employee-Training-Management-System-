@@ -23,8 +23,6 @@ const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 const frontendDist = path.join(__dirname, '..', 'frontend', 'dist');
 const frontendIndexHtml = path.join(frontendDist, 'index.html');
 
-// Trust the platform's reverse proxy (Render, etc.) so req.secure and req.ip reflect
-// the original client request — required for secure cookies and rate limiting to work.
 app.set('trust proxy', 1);
 
 app.use(express.json());
@@ -44,16 +42,16 @@ app.use(
   })
 );
 
-// confirm.html — the public employee self-confirmation page, deliberately outside the React app
+// confirm.html — public employee self-confirmation page.
 app.use(express.static(path.join(__dirname, 'public')));
-// The built React app (production). Run `npm run build` in frontend/ to generate this.
+
 app.use(express.static(frontendDist));
 
 // Public routes: login itself, and the employee self-confirmation flow
 app.use('/api/auth', authRouter);
 app.use('/api/confirm', confirmRouter);
 
-// Everything below requires an HR staff session
+// HR staff session
 app.use('/api/users', requireAuth, usersRouter);
 app.use('/api/dashboard', requireAuth, dashboardRouter);
 app.use('/api/reports', requireAuth, reportsRouter);
@@ -74,7 +72,7 @@ app.get('*', (req, res) => {
       .status(404)
       .send(
         'Frontend build not found. Run `npm run build` in frontend/ for production, ' +
-          'or use the Vite dev server (npm run dev in frontend/) during development.'
+        'or use the Vite dev server (npm run dev in frontend/) during development.'
       );
   }
   res.sendFile(frontendIndexHtml);
