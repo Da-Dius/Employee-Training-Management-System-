@@ -115,47 +115,6 @@ the self-confirmation note below). Instead:
   node scripts/reset-password.js <username> <new-password>
   ```
 
-## Deployment (Render)
-
-1. Push this repo to GitHub (or GitLab).
-2. Render dashboard: **New → Web Service**, connect the repo.
-3. **Build Command:**
-   ```
-   cd frontend && npm install && npm run build && cd ../backend && npm install
-   ```
-4. **Start Command:**
-   ```
-   node backend/server.js
-   ```
-5. **Add a Disk** (Render calls this out separately from the web service basics —
-   look for "Disks" in the service settings): mount path `/var/data`, at least 1GB.
-   This is what makes your data survive restarts and redeploys — don't skip it.
-6. **Environment variables:**
-   - `NODE_ENV` = `production`
-   - `DATA_DIR` = `/var/data` (must match the disk's mount path exactly)
-   - `SESSION_SECRET` = any long random string (or let Render generate one)
-
-### After the first deploy: create your first HR account
-
-Render's **free plan has no shell/SSH access**, so you can't run
-`scripts/create-user.js` there. That's fine — you don't need to. Just open
-`https://<your-app>.onrender.com/signup` in a browser. Since the database is empty
-on first deploy, signup skips the invite-code requirement automatically and lets
-you create the first account directly (see "First-time setup" above — same logic,
-just reached over the internet instead of localhost). After that, invite-code
-signup or admin-added accounts work as normal from the HR Users page.
-
-This also means the `scripts/reset-password.js` CLI fallback for a fully-locked-out
-team **isn't reachable on the free plan** (no shell access) — on Render, password
-recovery only works via the "another signed-in HR user resets yours" path. If that's
-a real risk for your team, either keep at least two HR accounts at all times, or
-upgrade to a Render plan with shell access.
-
-### Other things worth knowing
-
-- `NODE_ENV=production` turns on secure (HTTPS-only) session cookies — this is set
-  for you by the Blueprint/env var above. Don't set it locally over plain HTTP, or
-  your cookie won't be sent and you won't be able to log in in dev.
 - The app calls `app.set('trust proxy', 1)`, which is correct for Render's standard
   single reverse-proxy setup.
 - Login, signup, and the employee confirmation endpoint are all rate-limited (20

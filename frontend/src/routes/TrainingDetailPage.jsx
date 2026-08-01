@@ -1,5 +1,20 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import {
+  ArrowLeft,
+  Calendar,
+  MapPin,
+  Pencil,
+  Users,
+  ClipboardCheck,
+  Download,
+  UserPlus,
+  Link2,
+  Trash2,
+  Paperclip,
+  Upload,
+  FileText,
+} from 'lucide-react';
 import * as api from '../api/client';
 import { formatDate, formatMoney, statusBadgeClass } from '../utils';
 import { useToast } from '../context/ToastContext';
@@ -173,7 +188,7 @@ export default function TrainingDetailPage() {
     <>
       <div className="mb-4">
         <Link to="/trainings" className="inline-flex items-center gap-1 text-sm text-slate-600 hover:text-slate-900">
-          <i className="bi bi-arrow-left"></i>Back to Trainings
+          <ArrowLeft className="h-4 w-4" strokeWidth={2} />Back to Trainings
         </Link>
       </div>
 
@@ -186,17 +201,17 @@ export default function TrainingDetailPage() {
                 <span className="badge badge-slate border border-slate-200">{training.category}</span>
                 <span className={statusBadgeClass(training.status)}>{training.status}</span>
                 <span className="inline-flex items-center gap-1">
-                  <i className="bi bi-calendar3"></i>
+                  <Calendar className="h-4 w-4" strokeWidth={2} />
                   {formatDate(training.training_date)}
                 </span>
                 <span className="inline-flex items-center gap-1">
-                  <i className="bi bi-geo-alt"></i>
+                  <MapPin className="h-4 w-4" strokeWidth={2} />
                   {training.venue || 'No venue set'}
                 </span>
               </div>
             </div>
             <button className="btn btn-outline" onClick={() => setEditOpen(true)}>
-              <i className="bi bi-pencil"></i>Edit
+              <Pencil className="h-4 w-4" strokeWidth={2} />Edit
             </button>
           </div>
           <hr className="my-5 border-slate-100" />
@@ -227,17 +242,17 @@ export default function TrainingDetailPage() {
         <div className="card-body">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
             <h2 className="flex items-center gap-2 text-base font-semibold text-slate-900">
-              <i className="bi bi-people"></i>Nominees &amp; Attendance
+              <Users className="h-[18px] w-[18px]" strokeWidth={2} />Nominees &amp; Attendance
             </h2>
             <div className="flex flex-wrap gap-2">
               <button className="btn btn-outline btn-sm" onClick={handleCopyAllLinks}>
-                <i className="bi bi-clipboard-check"></i>Copy All Links
+                <ClipboardCheck className="h-4 w-4" strokeWidth={2} />Copy All Links
               </button>
               <button className="btn btn-outline btn-sm" onClick={handleExportLinksCsv}>
-                <i className="bi bi-download"></i>Export CSV
+                <Download className="h-4 w-4" strokeWidth={2} />Export CSV
               </button>
               <button className="btn btn-primary btn-sm" onClick={() => setNomineeModalOpen(true)}>
-                <i className="bi bi-person-plus"></i>Add Nominee
+                <UserPlus className="h-4 w-4" strokeWidth={2} />Add Nominee
               </button>
             </div>
           </div>
@@ -288,7 +303,7 @@ export default function TrainingDetailPage() {
                         <span className="badge badge-green">Confirmed</span>
                       ) : n.email ? (
                         <button className="btn btn-outline-primary btn-sm" onClick={() => handleCopyLink(n.confirmation_token)}>
-                          <i className="bi bi-link-45deg"></i>Copy Link
+                          <Link2 className="h-4 w-4" strokeWidth={2} />Copy Link
                         </button>
                       ) : (
                         <span className="text-xs text-slate-400">No email</span>
@@ -300,7 +315,7 @@ export default function TrainingDetailPage() {
                         title="Remove"
                         onClick={() => handleDeleteNominee(n.id)}
                       >
-                        <i className="bi bi-trash"></i>
+                        <Trash2 className="h-4 w-4" strokeWidth={2} />
                       </button>
                     </td>
                   </tr>
@@ -314,7 +329,7 @@ export default function TrainingDetailPage() {
       <div className="card">
         <div className="card-body">
           <h2 className="mb-4 flex items-center gap-2 text-base font-semibold text-slate-900">
-            <i className="bi bi-paperclip"></i>Evidence &amp; Supporting Documents
+            <Paperclip className="h-[18px] w-[18px]" strokeWidth={2} />Evidence &amp; Supporting Documents
           </h2>
           <div className="mb-4 flex max-w-lg gap-2">
             <input
@@ -324,7 +339,7 @@ export default function TrainingDetailPage() {
               onChange={(e) => setUploadFiles(e.target.files)}
             />
             <button className="btn btn-primary shrink-0" onClick={handleUpload}>
-              <i className="bi bi-upload"></i>Upload
+              <Upload className="h-4 w-4" strokeWidth={2} />Upload
             </button>
           </div>
           <ul className="divide-y divide-slate-100">
@@ -332,16 +347,16 @@ export default function TrainingDetailPage() {
             {evidence.map((ev) => (
               <li key={ev.id} className="flex items-center justify-between gap-3 py-3">
                 <div className="flex items-center gap-2 text-sm text-slate-700">
-                  <i className="bi bi-file-earmark-text text-slate-400"></i>
+                  <FileText className="h-4 w-4 text-slate-400" strokeWidth={2} />
                   {ev.original_name}
                   <span className="text-xs text-slate-400">{(ev.size / 1024).toFixed(1)} KB</span>
                 </div>
                 <div className="flex shrink-0 gap-1">
                   <a className="btn btn-outline btn-icon" href={api.evidenceDownloadUrl(id, ev.id)}>
-                    <i className="bi bi-download"></i>
+                    <Download className="h-4 w-4" strokeWidth={2} />
                   </a>
                   <button className="btn btn-outline-danger btn-icon" onClick={() => handleDeleteEvidence(ev.id)}>
-                    <i className="bi bi-trash"></i>
+                    <Trash2 className="h-4 w-4" strokeWidth={2} />
                   </button>
                 </div>
               </li>

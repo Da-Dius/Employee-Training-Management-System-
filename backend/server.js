@@ -17,6 +17,7 @@ const evidenceRouter = require('./routes/evidence');
 const dashboardRouter = require('./routes/dashboard');
 const reportsRouter = require('./routes/reports');
 const confirmRouter = require('./routes/confirm');
+const employeesRouter = require('./routes/employees');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -29,9 +30,7 @@ app.set('trust proxy', 1);
 
 app.use(express.json());
 
-// Session secret used to live in a synchronous const (SQLite was sync). Mongo access is
-// async, so we fetch/create it once at startup and only then wire up the session
-// middleware and start listening. Everything else in the app stays the same shape.
+
 async function main() {
   const sessionSecret = await initSessionSecret();
 
@@ -40,7 +39,7 @@ async function main() {
       store: MongoStore.create({
         mongoUrl: process.env.MONGODB_URI,
         collectionName: 'sessions',
-        ttl: 8 * 60 * 60, // seconds; keep in sync with cookie maxAge below
+        ttl: 8 * 60 * 60,
       }),
       secret: process.env.SESSION_SECRET || sessionSecret,
       resave: false,
@@ -65,6 +64,7 @@ async function main() {
 
   // HR staff session
   app.use('/api/users', requireAuth, usersRouter);
+  app.use('/api/employees', requireAuth, employeesRouter);
   app.use('/api/dashboard', requireAuth, dashboardRouter);
   app.use('/api/reports', requireAuth, reportsRouter);
   app.use('/api/trainings/:trainingId/nominees', requireAuth, nomineesRouter);

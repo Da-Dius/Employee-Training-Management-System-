@@ -10,7 +10,7 @@ function asyncHandler(fn) {
 }
 
 function trainingStatus(dateStr) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Nairobi' }).format(new Date());
   return dateStr >= today ? 'Upcoming' : 'Completed';
 }
 

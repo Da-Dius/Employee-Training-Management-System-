@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Plus, X, Pencil, Trash2 } from 'lucide-react';
 import * as api from '../api/client';
 import { CATEGORIES, formatDate, formatMoney, statusBadgeClass } from '../utils';
 import { useToast } from '../context/ToastContext';
@@ -69,7 +70,7 @@ export default function TrainingsPage() {
       <div className="mb-6 flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-semibold text-slate-900">Trainings</h1>
         <button className="btn btn-primary" onClick={() => setModalState({ show: true, training: null })}>
-          <i className="bi bi-plus-lg"></i>New Training
+          <Plus className="h-4 w-4" strokeWidth={2} />New Training
         </button>
       </div>
 
@@ -112,7 +113,7 @@ export default function TrainingsPage() {
             title="Clear filters"
             onClick={() => setFilters({ name: '', category: '', date: '', department: '' })}
           >
-            <i className="bi bi-x-lg"></i>Clear
+            <X className="h-4 w-4" strokeWidth={2} />Clear
           </button>
         </div>
       </div>
@@ -182,14 +183,14 @@ export default function TrainingsPage() {
                           title="Edit"
                           onClick={() => setModalState({ show: true, training: t })}
                         >
-                          <i className="bi bi-pencil"></i>
+                          <Pencil className="h-4 w-4" strokeWidth={2} />
                         </button>
                         <button
                           className="btn btn-outline-danger btn-icon"
                           title="Delete"
                           onClick={() => handleDelete(t.id)}
                         >
-                          <i className="bi bi-trash"></i>
+                          <Trash2 className="h-4 w-4" strokeWidth={2} />
                         </button>
                       </div>
                     </td>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { GraduationCap } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export default function LoginPage() {
@@ -30,7 +31,7 @@ export default function LoginPage() {
       <div className="mx-auto w-full max-w-[420px] px-4">
         <div className="mb-6 text-center">
           <span className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-600 text-white shadow-sm">
-            <i className="bi bi-mortarboard-fill text-2xl"></i>
+            <GraduationCap className="h-6 w-6" strokeWidth={2.25} />
           </span>
           <h4 className="text-lg font-semibold text-slate-900">HRCD Training Management</h4>
           <div className="text-sm text-slate-500">HR staff sign in</div>

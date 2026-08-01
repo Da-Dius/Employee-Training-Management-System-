@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { UserPlus, Ticket, Clipboard, RefreshCw, Key, Trash2 } from 'lucide-react';
 import * as api from '../api/client';
 import { formatDate } from '../utils';
 import { useToast } from '../context/ToastContext';
@@ -116,14 +117,14 @@ export default function UsersPage() {
       <div className="mb-6 flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-semibold text-slate-900">HR Users</h1>
         <button className="btn btn-primary" onClick={() => setModalOpen(true)}>
-          <i className="bi bi-person-plus"></i>Add HR User
+          <UserPlus className="h-4 w-4" strokeWidth={2} />Add HR User
         </button>
       </div>
 
       <div className="card mb-4">
         <div className="card-body">
           <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-900">
-            <i className="bi bi-ticket-perforated"></i>Self-Service Invite Code
+            <Ticket className="h-4 w-4" strokeWidth={2} />Self-Service Invite Code
           </h2>
           <p className="mb-4 text-sm text-slate-500">
             Share this code with colleagues along with the sign-in page link (<code>/signup</code>) so they can create
@@ -134,10 +135,10 @@ export default function UsersPage() {
               {inviteCode}
             </code>
             <button className="btn btn-outline btn-sm" onClick={handleCopyInvite}>
-              <i className="bi bi-clipboard"></i>Copy
+              <Clipboard className="h-4 w-4" strokeWidth={2} />Copy
             </button>
             <button className="btn btn-outline-danger btn-sm" onClick={handleRegenerate}>
-              <i className="bi bi-arrow-repeat"></i>Regenerate
+              <RefreshCw className="h-4 w-4" strokeWidth={2} />Regenerate
             </button>
           </div>
         </div>
@@ -187,10 +188,10 @@ export default function UsersPage() {
                             setResetError('');
                           }}
                         >
-                          <i className="bi bi-key"></i>
+                          <Key className="h-4 w-4" strokeWidth={2} />
                         </button>
                         <button className="btn btn-outline-danger btn-icon" title="Remove" onClick={() => handleDelete(u.id)}>
-                          <i className="bi bi-trash"></i>
+                          <Trash2 className="h-4 w-4" strokeWidth={2} />
                         </button>
                       </div>
                     </td>

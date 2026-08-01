@@ -5,7 +5,7 @@ async function request(url, options = {}) {
 
   if (res.status === 401 && url !== `${BASE}/auth/me`) {
     window.location.href = '/login';
-    return new Promise(() => {}); // halt: page is navigating away
+    return new Promise(() => { });
   }
   if (res.status === 204) return null;
 
@@ -73,5 +73,36 @@ export const deleteEvidence = (trainingId, evidenceId) =>
 export const evidenceDownloadUrl = (trainingId, evidenceId) =>
   `${BASE}/trainings/${trainingId}/evidence/${evidenceId}/download`;
 
-export const getMonthlyReport = (month) => request(`${BASE}/reports/monthly?month=${month || ''}`);
-export const monthlyReportExportUrl = (month) => `${BASE}/reports/monthly/export?month=${month || ''}`;
+export const getMonthlyReport = (filters = {}) => {
+  const qs = new URLSearchParams(Object.entries(filters).filter(([, v]) => v));
+  return request(`${BASE}/reports/monthly?${qs.toString()}`);
+};
+export const monthlyReportExportUrl = (filters = {}) => {
+  const qs = new URLSearchParams(Object.entries(filters).filter(([, v]) => v));
+  return `${BASE}/reports/monthly/export?${qs.toString()}`;
+};
+
+export const listEmployees = (params = {}) => {
+  const qs = new URLSearchParams(Object.entries(params).filter(([, v]) => v));
+  return request(`${BASE}/employees?${qs.toString()}`);
+};
+
+export const getEmployee = (id) =>
+  request(`${BASE}/employees/${id}`);
+
+export const createEmployee = (data) =>
+  request(`${BASE}/employees`, {
+    method: 'POST',
+    ...jsonBody(data),
+  });
+
+export const updateEmployee = (id, data) =>
+  request(`${BASE}/employees/${id}`, {
+    method: 'PUT',
+    ...jsonBody(data),
+  });
+
+export const deleteEmployee = (id) =>
+  request(`${BASE}/employees/${id}`, {
+    method: 'DELETE',
+  });

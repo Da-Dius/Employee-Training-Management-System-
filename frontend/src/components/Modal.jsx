@@ -1,3 +1,5 @@
+import { X } from 'lucide-react';
+
 export default function Modal({ show, title, onClose, children, footer, size }) {
   if (!show) return null;
 
@@ -13,7 +15,7 @@ export default function Modal({ show, title, onClose, children, footer, size }) 
             onClick={onClose}
             className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
           >
-            <i className="bi bi-x-lg"></i>
+            <X className="h-[18px] w-[18px]" strokeWidth={2} />
           </button>
         </div>
         <div className="px-5 py-4">{children}</div>

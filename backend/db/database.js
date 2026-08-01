@@ -52,6 +52,16 @@ const nomineeSchema = new Schema({
   confirmationToken: { type: String, unique: true, sparse: true }, // sparse allows many nulls
 }, { timestamps: { createdAt: true, updatedAt: false } });
 
+const employeeSchema = new Schema({
+  name: { type: String, required: true },
+  employeeNumber: { type: String, required: true, unique: true },
+  department: String,
+  division: String,
+  section: String,
+  stationRegion: String,
+  email: String,
+}, { timestamps: true });
+
 const evidenceSchema = new Schema({
   training: { type: Schema.Types.ObjectId, ref: 'Training', required: true },
   filename: { type: String, required: true },
@@ -70,12 +80,12 @@ const settingSchema = new Schema({
   value: { type: String, required: true },
 });
 
-// Note: no Session schema here — connect-mongo manages the sessions collection itself.
 
 // ---------- Models ----------
 
 const Training = mongoose.model('Training', trainingSchema);
 const Nominee = mongoose.model('Nominee', nomineeSchema);
+const Employee = mongoose.model('Employee', employeeSchema);
 const Evidence = mongoose.model('Evidence', evidenceSchema);
 const User = mongoose.model('User', userSchema);
 const Setting = mongoose.model('Setting', settingSchema);
@@ -152,6 +162,7 @@ module.exports = {
   uploadsDir,
   Training,
   Nominee,
+  Employee,
   Evidence,
   User,
   Setting,

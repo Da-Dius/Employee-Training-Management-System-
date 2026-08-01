@@ -6,6 +6,7 @@ import SignupPage from './routes/SignupPage';
 import DashboardPage from './routes/DashboardPage';
 import TrainingsPage from './routes/TrainingsPage';
 import TrainingDetailPage from './routes/TrainingDetailPage';
+import EmployeesPage from './routes/EmployeesPage';
 import ReportsPage from './routes/ReportsPage';
 import UsersPage from './routes/UsersPage';
 
@@ -30,6 +31,7 @@ export default function App() {
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/trainings" element={<TrainingsPage />} />
           <Route path="/trainings/:id" element={<TrainingDetailPage />} />
+          <Route path="/employees" element={<EmployeesPage />} />
           <Route path="/reports" element={<ReportsPage />} />
           <Route path="/users" element={<UsersPage />} />
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
