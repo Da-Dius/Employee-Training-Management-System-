@@ -6,6 +6,7 @@ import { CATEGORIES, formatDate, formatMoney, statusBadgeClass } from '../utils'
 import { useToast } from '../context/ToastContext';
 import TrainingFormModal from '../components/TrainingFormModal';
 import Spinner from '../components/Spinner';
+import { triggerNotificationRefresh } from '../notificationBus';
 
 export default function TrainingsPage() {
   const navigate = useNavigate();
@@ -63,6 +64,7 @@ export default function TrainingsPage() {
     }
     setModalState({ show: false, training: null });
     load(filters);
+    triggerNotificationRefresh();
   };
 
   return (

@@ -75,6 +75,16 @@ const userSchema = new Schema({
   passwordHash: { type: String, required: true },
 }, { timestamps: { createdAt: true, updatedAt: false } });
 
+const notificationSchema = new Schema({
+  type: { type: String, required: true },
+  message: { type: String, required: true },
+  link: String,
+  refId: { type: Schema.Types.ObjectId },
+  read: { type: Boolean, default: false },
+}, { timestamps: { createdAt: true, updatedAt: false } });
+
+notificationSchema.index({ type: 1, refId: 1 }, { unique: true });
+
 const settingSchema = new Schema({
   key: { type: String, required: true, unique: true },
   value: { type: String, required: true },
@@ -88,6 +98,7 @@ const Nominee = mongoose.model('Nominee', nomineeSchema);
 const Employee = mongoose.model('Employee', employeeSchema);
 const Evidence = mongoose.model('Evidence', evidenceSchema);
 const User = mongoose.model('User', userSchema);
+const Notification = mongoose.model('Notification', notificationSchema);
 const Setting = mongoose.model('Setting', settingSchema);
 
 // ---------- Helpers (same interface as before, now async) ----------
@@ -165,6 +176,7 @@ module.exports = {
   Employee,
   Evidence,
   User,
+  Notification,
   Setting,
   genToken,
   hashPassword,

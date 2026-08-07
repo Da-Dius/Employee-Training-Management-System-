@@ -1,7 +1,7 @@
 const express = require('express');
 const path = require('node:path');
 const fs = require('node:fs');
-const { mongoose, Training, Nominee, Evidence, uploadsDir } = require('../db/database');
+const { mongoose, Training, Nominee, Evidence, Notification, uploadsDir } = require('../db/database');
 
 const router = express.Router();
 
@@ -10,6 +10,10 @@ function asyncHandler(fn) {
 }
 
 function trainingStatus(dateStr) {
+  // Compute "today" in the org's local timezone, not the server host's timezone
+  // (which is UTC on Render). Using toISOString() here caused trainings to briefly
+  // show as "Upcoming" instead of "Completed" during the first few hours after
+  // midnight Nairobi time, since the UTC date still lagged a day behind.
   const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Nairobi' }).format(new Date());
   return dateStr >= today ? 'Upcoming' : 'Completed';
 }
@@ -91,6 +95,8 @@ router.put('/:id', asyncHandler(async (req, res) => {
 
   const { name, category, training_date, venue, cost, paid, per_diem, description } = req.body;
 
+  const dateChanged = training_date !== undefined && training_date !== existing.trainingDate;
+
   existing.name = name ?? existing.name;
   existing.category = category ?? existing.category;
   existing.trainingDate = training_date ?? existing.trainingDate;
@@ -101,6 +107,14 @@ router.put('/:id', asyncHandler(async (req, res) => {
   existing.description = description ?? existing.description;
 
   await existing.save();
+
+  if (dateChanged) {
+    // The training was rescheduled — any existing "starts today/tomorrow" notification
+    // now has a stale date baked into its message. Delete it so the next notifications
+    // sync (see routes/notifications.js) regenerates it fresh against the new date,
+    // instead of leaving an outdated reminder sitting in everyone's notification list.
+    await Notification.deleteOne({ type: 'training_starting', refId: existing._id });
+  }
 
   res.json(serializeTraining(existing));
 }));
@@ -118,6 +132,7 @@ router.delete('/:id', asyncHandler(async (req, res) => {
   await Training.deleteOne({ _id: existing._id });
   await Nominee.deleteMany({ training: existing._id });
   await Evidence.deleteMany({ training: existing._id });
+  await Notification.deleteOne({ type: 'training_starting', refId: existing._id });
 
   evidenceFiles.forEach((row) => {
     fs.unlink(path.join(uploadsDir, row.filename), () => { });

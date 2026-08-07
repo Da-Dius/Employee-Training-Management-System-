@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   BookText,
@@ -14,17 +14,57 @@ import {
   BadgeCheck,
 } from 'lucide-react';
 import * as api from '../api/client';
-import { formatDate, formatMoney } from '../utils';
+import { formatDate } from '../utils';
 import { useAuth } from '../context/AuthContext';
-import Spinner from '../components/Spinner';
 
 const CARD_CONFIG = [
-  { key: 'totalTrainings', label: 'Total Trainings', Icon: BookText, accent: 'text-blue-600 bg-blue-50', to: '/trainings' },
-  { key: 'upcomingTrainings', label: 'Upcoming Trainings', Icon: CalendarDays, accent: 'text-sky-600 bg-sky-50', to: '/trainings' },
-  { key: 'completedTrainings', label: 'Completed Trainings', Icon: CheckCircle2, accent: 'text-slate-600 bg-slate-100', to: '/trainings' },
-  { key: 'totalNominees', label: 'Total Nominees', Icon: Users, accent: 'text-amber-600 bg-amber-50' },
-  { key: 'totalAttendees', label: 'Total Attendees', Icon: UserCheck, accent: 'text-emerald-600 bg-emerald-50' },
+  {
+    key: 'totalTrainings',
+    label: 'Total Trainings',
+    Icon: BookText,
+    accent: 'text-blue-600 bg-blue-50',
+    border: 'border-t-blue-500',
+    to: '/trainings',
+  },
+  {
+    key: 'upcomingTrainings',
+    label: 'Upcoming Trainings',
+    Icon: CalendarDays,
+    accent: 'text-amber-600 bg-amber-50',
+    border: 'border-t-amber-500',
+    to: '/trainings',
+  },
+  {
+    key: 'completedTrainings',
+    label: 'Completed Trainings',
+    Icon: CheckCircle2,
+    accent: 'text-emerald-600 bg-emerald-50',
+    border: 'border-t-emerald-500',
+    to: '/trainings',
+  },
+  {
+    key: 'totalNominees',
+    label: 'Total Nominees',
+    Icon: Users,
+    accent: 'text-violet-600 bg-violet-50',
+    border: 'border-t-violet-500',
+  },
+  {
+    key: 'totalAttendees',
+    label: 'Total Attendees',
+    Icon: UserCheck,
+    accent: 'text-cyan-600 bg-cyan-50',
+    border: 'border-t-cyan-500',
+  },
 ];
+
+const prefersReducedMotion =
+  typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+
+function formatKES(amount) {
+  const n = Number(amount) || 0;
+  return `KSh ${n.toLocaleString('en-KE')}`;
+}
 
 function greeting() {
   const h = new Date().getHours();
@@ -50,12 +90,104 @@ function relativeDate(dateStr) {
   return formatDate(dateStr);
 }
 
+// Counts up from 0 to `value` once, on mount/when value first becomes available.
+// Skips the animation entirely for prefers-reduced-motion.
+function AnimatedNumber({ value, duration = 700 }) {
+  const [display, setDisplay] = useState(prefersReducedMotion ? value : 0);
+  const startRef = useRef(null);
+
+  useEffect(() => {
+    if (prefersReducedMotion) {
+      setDisplay(value);
+      return;
+    }
+    startRef.current = null;
+    let frame;
+    const step = (timestamp) => {
+      if (startRef.current === null) startRef.current = timestamp;
+      const progress = Math.min((timestamp - startRef.current) / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3); // ease-out cubic
+      setDisplay(Math.round(eased * value));
+      if (progress < 1) frame = requestAnimationFrame(step);
+    };
+    frame = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(frame);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
+
+  return <>{display}</>;
+}
+
+function TrainingRow({ t, tone, index }) {
+  const toneClass =
+    tone === 'upcoming' ? 'text-amber-600' : 'inline-flex items-center gap-1 text-emerald-600';
+
+  return (
+    <Link
+      to={`/trainings/${t.id}`}
+      style={{ animationDelay: `${index * 60}ms` }}
+      className="animate-fade-slide-in group flex h-full flex-col justify-between rounded-lg border border-slate-100 p-3 transition-colors hover:border-slate-200 hover:bg-slate-50"
+    >
+      <div className="min-w-0">
+        <div className="truncate text-sm font-semibold text-slate-900">{t.name}</div>
+        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500">
+          <span className="badge badge-slate border border-slate-200">{t.category}</span>
+          {t.venue && (
+            <span className="inline-flex items-center gap-1">
+              <MapPin className="h-3 w-3" strokeWidth={2} />
+              {t.venue}
+            </span>
+          )}
+        </div>
+      </div>
+      <div className="mt-2 flex items-center justify-between text-xs">
+        <span className={`font-semibold ${toneClass}`}>
+          {tone === 'completed' && <BadgeCheck className="h-3.5 w-3.5" strokeWidth={2} />}
+          {relativeDate(t.training_date)}
+        </span>
+        <span className="text-slate-400">{formatDate(t.training_date)}</span>
+      </div>
+      {tone === 'upcoming' && t.cost > 0 && (
+        <div className="mt-1 text-xs text-slate-400">{formatKES(t.cost)}</div>
+      )}
+    </Link>
+  );
+}
+
+function KpiSkeleton() {
+  return (
+    <div className="card animate-pulse">
+      <div className="card-body flex items-center justify-between gap-3">
+        <div className="w-full">
+          <div className="mb-2 h-3 w-20 rounded bg-slate-200" />
+          <div className="h-8 w-12 rounded bg-slate-200" />
+        </div>
+        <div className="h-10 w-10 shrink-0 rounded-lg bg-slate-200" />
+      </div>
+    </div>
+  );
+}
+
+function PanelSkeleton() {
+  return (
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      {[0, 1].map((i) => (
+        <div key={i} className="animate-pulse rounded-lg border border-slate-100 p-3">
+          <div className="mb-2 h-4 w-2/3 rounded bg-slate-200" />
+          <div className="h-3 w-1/3 rounded bg-slate-100" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function DashboardPage() {
   const { user } = useAuth();
   const [stats, setStats] = useState(null);
   const [error, setError] = useState('');
   const [upcoming, setUpcoming] = useState(null);
   const [recentCompleted, setRecentCompleted] = useState(null);
+  const [ratioMounted, setRatioMounted] = useState(false);
 
   useEffect(() => {
     api.getDashboard().then(setStats).catch((e) => setError(e.message));
@@ -70,7 +202,7 @@ export default function DashboardPage() {
         const next = rows
           .filter((t) => t.training_date >= todayStr)
           .sort((a, b) => a.training_date.localeCompare(b.training_date))
-          .slice(0, 5);
+          .slice(0, 4);
         setUpcoming(next);
 
         const done = rows
@@ -85,26 +217,41 @@ export default function DashboardPage() {
       });
   }, []);
 
+  // Let the ratio bar mount at 0 width first, then animate to its real value —
+  // otherwise the CSS transition has nothing to transition *from*.
+  useEffect(() => {
+    if (stats) {
+      const t = setTimeout(() => setRatioMounted(true), 50);
+      return () => clearTimeout(t);
+    }
+  }, [stats]);
+
   if (error) return <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">Failed to load dashboard: {error}</div>;
-  if (!stats)
-    return (
-      <div className="flex justify-center py-16">
-        <Spinner />
-      </div>
-    );
 
   const confirmedRatio =
-    stats.totalNominees > 0 ? Math.round((stats.totalAttendees / stats.totalNominees) * 100) : null;
+    stats && stats.totalNominees > 0 ? Math.round((stats.totalAttendees / stats.totalNominees) * 100) : null;
 
   return (
     <>
+      {/* Local keyframes — kept scoped to this page rather than editing the shared
+          stylesheet for a single-page entrance animation. */}
+      <style>{`
+        @keyframes fadeSlideIn {
+          from { opacity: 0; transform: translateY(6px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-slide-in {
+          animation: fadeSlideIn 0.4s ease-out backwards;
+        }
+      `}</style>
+
       <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold text-slate-900">
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
             {greeting()}
             {user?.name ? `, ${firstName(user.name)}` : ''}
           </h1>
-          <p className="mt-0.5 text-sm text-slate-500">
+          <p className="mt-1 text-sm text-slate-500">
             {new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
           </p>
         </div>
@@ -114,46 +261,55 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
-        {CARD_CONFIG.map(({ key, label, Icon, accent, to }) => {
-          const content = (
-            <div className="card-body flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <div className="mb-1 text-xs font-medium text-slate-500">{label}</div>
-                <div className="text-3xl font-bold tracking-tight text-slate-900">{stats[key]}</div>
-                {key === 'totalAttendees' && confirmedRatio !== null && (
-                  <div className="mt-2 w-24">
-                    <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
-                      <div
-                        className="h-full rounded-full bg-emerald-500 transition-all"
-                        style={{ width: `${confirmedRatio}%` }}
-                      />
-                    </div>
-                    <div className="mt-1 text-[11px] text-slate-400">{confirmedRatio}% of nominees</div>
+        {!stats
+          ? CARD_CONFIG.map(({ key }) => <KpiSkeleton key={key} />)
+          : CARD_CONFIG.map(({ key, label, Icon, accent, border, to }, i) => {
+            const content = (
+              <div className="card-body flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="mb-1 text-xs font-medium text-slate-500">{label}</div>
+                  <div className="text-3xl font-bold tracking-tight text-slate-900">
+                    <AnimatedNumber value={stats[key]} />
                   </div>
-                )}
+                  {key === 'totalAttendees' && confirmedRatio !== null && (
+                    <div className="mt-2 w-24">
+                      <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
+                        <div
+                          className="h-full rounded-full bg-emerald-500 transition-all duration-700 ease-out"
+                          style={{ width: `${ratioMounted ? confirmedRatio : 0}%` }}
+                        />
+                      </div>
+                      <div className="mt-1 text-[11px] text-slate-400">{confirmedRatio}% of nominees</div>
+                    </div>
+                  )}
+                </div>
+                <span
+                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg transition-transform duration-200 group-hover:scale-110 ${accent}`}
+                >
+                  <Icon className="h-5 w-5" strokeWidth={2} />
+                </span>
               </div>
-              <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${accent}`}>
-                <Icon className="h-5 w-5" strokeWidth={2} />
-              </span>
-            </div>
-          );
-          return to ? (
-            <Link className="card transition-shadow hover:shadow-md" key={key} to={to}>
-              {content}
-            </Link>
-          ) : (
-            <div className="card" key={key}>
-              {content}
-            </div>
-          );
-        })}
+            );
+            const commonProps = {
+              key,
+              style: { animationDelay: `${i * 60}ms` },
+              className: `card group animate-fade-slide-in border-t-[3px] ${border} ${to ? 'card-hover' : ''}`,
+            };
+            return to ? (
+              <Link to={to} {...commonProps}>
+                {content}
+              </Link>
+            ) : (
+              <div {...commonProps}>{content}</div>
+            );
+          })}
       </div>
 
       <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-2">
         {/* Upcoming Trainings */}
-        <div className="card">
+        <div className="card card-accent-amber">
           <div className="card-body">
-            <div className="mb-4 flex items-center justify-between">
+            <div className="section-heading">
               <h2 className="flex items-center gap-2 text-base font-semibold text-slate-900">
                 <CalendarClock className="h-[18px] w-[18px]" strokeWidth={2} />Upcoming Trainings
               </h2>
@@ -162,11 +318,7 @@ export default function DashboardPage() {
               </Link>
             </div>
 
-            {upcoming === null && (
-              <div className="flex justify-center py-8">
-                <Spinner small />
-              </div>
-            )}
+            {upcoming === null && <PanelSkeleton />}
 
             {upcoming && upcoming.length === 0 && (
               <div className="py-8 text-center text-sm text-slate-400">
@@ -179,45 +331,19 @@ export default function DashboardPage() {
             )}
 
             {upcoming && upcoming.length > 0 && (
-              <ul className="divide-y divide-slate-100">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {upcoming.map((t, i) => (
-                  <li key={t.id}>
-                    <Link
-                      to={`/trainings/${t.id}`}
-                      className="-mx-2 flex items-center justify-between gap-4 rounded-lg px-2 py-3 transition-colors hover:bg-slate-50"
-                    >
-                      <div className="min-w-0">
-                        <div className="truncate font-medium text-slate-900">{t.name}</div>
-                        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
-                          <span className="badge badge-slate border border-slate-200">{t.category}</span>
-                          {t.venue && (
-                            <span className="inline-flex items-center gap-1">
-                              <MapPin className="h-3 w-3" strokeWidth={2} />
-                              {t.venue}
-                            </span>
-                          )}
-                          {t.cost > 0 && <span>{formatMoney(t.cost)}</span>}
-                          {t.per_diem && <span className="badge badge-green">Per diem</span>}
-                        </div>
-                      </div>
-                      <div className="shrink-0 text-right">
-                        <div className={`text-sm font-semibold ${i === 0 ? 'text-amber-600' : 'text-slate-700'}`}>
-                          {relativeDate(t.training_date)}
-                        </div>
-                        <div className="mt-0.5 text-xs text-slate-400">{formatDate(t.training_date)}</div>
-                      </div>
-                    </Link>
-                  </li>
+                  <TrainingRow key={t.id} t={t} tone="upcoming" index={i} />
                 ))}
-              </ul>
+              </div>
             )}
           </div>
         </div>
 
         {/* Recently Completed */}
-        <div className="card">
+        <div className="card card-accent-emerald">
           <div className="card-body">
-            <div className="mb-4 flex items-center justify-between">
+            <div className="section-heading">
               <h2 className="flex items-center gap-2 text-base font-semibold text-slate-900">
                 <History className="h-[18px] w-[18px]" strokeWidth={2} />Recently Completed
               </h2>
@@ -226,47 +352,18 @@ export default function DashboardPage() {
               </Link>
             </div>
 
-            {recentCompleted === null && (
-              <div className="flex justify-center py-8">
-                <Spinner small />
-              </div>
-            )}
+            {recentCompleted === null && <PanelSkeleton />}
 
             {recentCompleted && recentCompleted.length === 0 && (
               <div className="py-8 text-center text-sm text-slate-400">No completed trainings yet.</div>
             )}
 
             {recentCompleted && recentCompleted.length > 0 && (
-              <ul className="divide-y divide-slate-100">
-                {recentCompleted.map((t) => (
-                  <li key={t.id}>
-                    <Link
-                      to={`/trainings/${t.id}`}
-                      className="-mx-2 flex items-center justify-between gap-4 rounded-lg px-2 py-3 transition-colors hover:bg-slate-50"
-                    >
-                      <div className="min-w-0">
-                        <div className="truncate font-medium text-slate-900">{t.name}</div>
-                        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
-                          <span className="badge badge-slate border border-slate-200">{t.category}</span>
-                          {t.venue && (
-                            <span className="inline-flex items-center gap-1">
-                              <MapPin className="h-3 w-3" strokeWidth={2} />
-                              {t.venue}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      <div className="shrink-0 text-right">
-                        <div className="inline-flex items-center gap-1 text-sm font-medium text-emerald-600">
-                          <BadgeCheck className="h-4 w-4" strokeWidth={2} />
-                          {relativeDate(t.training_date)}
-                        </div>
-                        <div className="mt-0.5 text-xs text-slate-400">{formatDate(t.training_date)}</div>
-                      </div>
-                    </Link>
-                  </li>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {recentCompleted.map((t, i) => (
+                  <TrainingRow key={t.id} t={t} tone="completed" index={i} />
                 ))}
-              </ul>
+              </div>
             )}
           </div>
         </div>

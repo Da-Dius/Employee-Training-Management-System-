@@ -8,7 +8,8 @@ function asyncHandler(fn) {
 }
 
 router.get('/', asyncHandler(async (req, res) => {
-  const today = new Date().toISOString().slice(0, 10);
+
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Nairobi' }).format(new Date());
 
   const [totalTrainings, upcomingTrainings, completedTrainings, totalNominees, totalAttendees] =
     await Promise.all([

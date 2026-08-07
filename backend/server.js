@@ -18,6 +18,7 @@ const dashboardRouter = require('./routes/dashboard');
 const reportsRouter = require('./routes/reports');
 const confirmRouter = require('./routes/confirm');
 const employeesRouter = require('./routes/employees');
+const notificationsRouter = require('./routes/notifications');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -70,14 +71,14 @@ async function main() {
   app.use('/api/trainings/:trainingId/nominees', requireAuth, nomineesRouter);
   app.use('/api/trainings/:trainingId/evidence', requireAuth, evidenceRouter);
   app.use('/api/trainings', requireAuth, trainingsRouter);
+  app.use('/api/notifications', requireAuth, notificationsRouter);
 
-  // Unmatched /api/* requests get a JSON 404 instead of falling through to the SPA fallback below
+
   app.use('/api', (req, res) => {
     res.status(404).json({ error: 'Not found' });
   });
 
-  // SPA fallback: any other GET request goes to the React app so client-side routing
-  // (e.g. /trainings/5) works on a hard refresh or direct link.
+
   app.get('*', (req, res) => {
     if (!fs.existsSync(frontendIndexHtml)) {
       return res

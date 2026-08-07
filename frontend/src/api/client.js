@@ -37,6 +37,10 @@ export const resetUserPassword = (id, new_password) =>
 export const getInviteCode = () => request(`${BASE}/users/invite-code`);
 export const regenerateInviteCode = () => request(`${BASE}/users/invite-code/regenerate`, { method: 'POST' });
 
+export const listNotifications = () => request(`${BASE}/notifications`);
+export const markNotificationRead = (id) => request(`${BASE}/notifications/${id}/read`, { method: 'POST' });
+export const markAllNotificationsRead = () => request(`${BASE}/notifications/read-all`, { method: 'POST' });
+
 export const getDashboard = () => request(`${BASE}/dashboard`);
 
 export const listTrainings = (params = {}) => {
