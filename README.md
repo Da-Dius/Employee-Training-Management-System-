@@ -7,7 +7,7 @@ department — a React frontend talking to a Node.js/Express + SQLite backend.
 
 - **Backend:** Node.js + Express, in `backend/`
 - **Database:** SQLite (via Node's built-in `node:sqlite`, no native build tools or DB server required)
-- **Frontend:** React + Vite, in `frontend/`, styled with Tailwind CSS (icons from Bootstrap Icons — just the icon font, no Bootstrap framework)
+- **Frontend:** React + Vite, in `frontend/`, styled with Tailwind CSS (icons from Bootstrap Icons, just the icon font, no Bootstrap framework)
 - **File uploads:** Multer (stored under `backend/uploads/`)
 - **Excel export:** ExcelJS
 
@@ -16,7 +16,7 @@ department — a React frontend talking to a Node.js/Express + SQLite backend.
 ```
 hrms/
 ├── backend/
-│   ├── server.js              Express app entry point — API + serves the built frontend
+│   ├── server.js              Express app entry point - API + serves the built frontend
 │   ├── db/
 │   │   ├── database.js        SQLite schema + connection + settings (session secret, invite code)
 │   │   └── sqliteSessionStore.js  Custom express-session Store backed by SQLite (persists across restarts)
@@ -55,14 +55,14 @@ npm start
 cd frontend
 npm install
 npm run dev
+```
 
-
-Open **http://localhost:5173** — the Vite dev server proxies `/api/*` and `/confirm.html`
-to the backend on :3000, so you only ever need to open the :5173 URL(development).
+Open **http://localhost:5173**. The Vite dev server proxies `/api/*` and `/confirm.html`
+to the backend on :3000, so you only ever need to open the :5173 URL in development.
 
 ### Production
 
-
+```bash
 # build the frontend
 cd frontend
 npm install
@@ -74,7 +74,7 @@ npm install
 npm start
 ```
 
-Open **http://localhost:3000** — this is now the only URL you need; the backend serves
+Open **http://localhost:3000**. This is now the only URL you need: the backend serves
 the React app's static files directly, with a fallback so client-side routes (e.g.
 `/trainings/5`) work on a hard refresh or direct link. Re-run `npm run build` in
 `frontend/` whenever frontend code changes.
@@ -98,32 +98,34 @@ Once signed in, additional HR staff accounts can be added two ways:
 
 1. From the **HR Users** page in the app (an existing HR user picks the username/password).
 2. **Self-service**: share the invite code shown on the HR Users page, plus a link to
-   `/signup`, with a colleague — they pick their own username and password without you
+   `/signup`, with a colleague. They pick their own username and password without you
    ever seeing or sharing a password. Regenerate the code any time from the same page
    to revoke it (e.g. after everyone who needs it has signed up).
 
 ### Forgot a password?
 
-There's no email-based "forgot password" flow (the app doesn't send email at all — see
+There's no email-based "forgot password" flow (the app doesn't send email at all; see
 the self-confirmation note below). Instead:
 
 - **Someone else is still signed in:** any HR user can reset any other user's password
-  from the HR Users page (the key icon next to their row) — no need to know their old one.
+  from the HR Users page (the key icon next to their row), no need to know their old one.
 - **Nobody else has access:** reset it from the server directly:
   ```bash
   cd backend
   node scripts/reset-password.js <username> <new-password>
   ```
 
+### Production notes
+
 - The app calls `app.set('trust proxy', 1)`, which is correct for Render's standard
   single reverse-proxy setup.
 - Login, signup, and the employee confirmation endpoint are all rate-limited (20
   requests per 15 minutes per IP) to slow down password/invite-code guessing. A real
   user mistyping their password a few times won't notice; if you see `429` responses,
-  that's this limiter — wait 15 minutes (the limiter's counters are in-memory, so a
+  that's this limiter. Wait 15 minutes (the limiter's counters are in-memory, so a
   redeploy also clears them).
 - Re-run the frontend build (`npm run build` in `frontend/`) whenever frontend code
-  changes — Render's build command does this automatically on every deploy, so you
+  changes. Render's build command does this automatically on every deploy, so you
   only need to think about this if you're testing locally in "production mode."
 
 ## Features
@@ -152,7 +154,7 @@ the self-confirmation note below). Instead:
 ## Notes
 
 - The employee self-confirmation flow verifies the submitted work email against the
-  email on file for that nominee — it does not send email itself. Share the generated
+  email on file for that nominee; it does not send email itself. Share the generated
   link (via the "Copy Link" button on a training's nominee row) through your existing
   email system. This link intentionally stays public/unauthenticated so employees
   don't need an HR login to confirm their own attendance.
@@ -162,29 +164,29 @@ the self-confirmation note below). Instead:
   `backend/db/sqliteSessionStore.js`) rather than Express's default in-memory store, so
   staff stay signed in across server restarts. This also means the store is ready to
   share across multiple server processes (e.g. behind a load balancer) later, since
-  they'd all read/write the same SQLite file — though for genuine multi-instance
-  deployment you'd want a networked store (e.g. Postgres-backed sessions) instead of a
+  they'd all read/write the same SQLite file. For genuine multi-instance deployment,
+  though, you'd want a networked store (e.g. Postgres-backed sessions) instead of a
   shared file.
 - The session-signing secret and the self-service invite code are generated once and
   persisted in the `settings` table, so they also survive restarts.
 - Passwords are hashed with Node's built-in `crypto.scrypt` (salted, no plaintext ever
-  stored) — no extra dependency needed.
+  stored); no extra dependency needed.
 - The invite code lets anyone who has it create a full HR account, which can see all
   employee training data (names, employee numbers, departments). Only share it with
   people you intend to have access, and regenerate it if it leaks.
-- The backend's `frontend/dist` reference is a relative path one level up — keep
+- The backend's `frontend/dist` reference is a relative path one level up. Keep
   `backend/` and `frontend/` as siblings under the repo root (as they are) for this to
   resolve correctly.
 - Where the SQLite file and `uploads/` actually live is controlled by the optional
   `DATA_DIR` env var (see `backend/db/database.js`). Unset (local dev), everything
   stays at `backend/db/hrms.sqlite` and `backend/uploads/` exactly as before. Set (as
-  it is in production via `render.yaml`), both move under `$DATA_DIR` instead — e.g.
-  `$DATA_DIR/hrms.sqlite` and `$DATA_DIR/uploads/` — so they land on the mounted
+  it is in production via `render.yaml`), both move under `$DATA_DIR` instead, e.g.
+  `$DATA_DIR/hrms.sqlite` and `$DATA_DIR/uploads/`, so they land on the mounted
   persistent disk rather than the ephemeral container filesystem.
 - The frontend uses Tailwind CSS v4 (via `@tailwindcss/vite`, configured in
-  `frontend/vite.config.js`) — no separate `tailwind.config.js` needed. Shared visual
-  patterns (buttons, cards, form inputs, badges, tables) are defined once as `@apply`
-  component classes in `frontend/src/index.css` (e.g. `.btn-primary`, `.card`,
+  `frontend/vite.config.js`), so no separate `tailwind.config.js` is needed. Shared
+  visual patterns (buttons, cards, form inputs, badges, tables) are defined once as
+  `@apply` component classes in `frontend/src/index.css` (e.g. `.btn-primary`, `.card`,
   `.form-input`) rather than repeating long utility strings in every component. The
-  Modal, navbar dropdown, and mobile menu are all plain React state — no Bootstrap JS
-  or other UI library involved.
+  Modal, navbar dropdown, and mobile menu are all plain React state; no Bootstrap JS
+  or other UI library is involved.

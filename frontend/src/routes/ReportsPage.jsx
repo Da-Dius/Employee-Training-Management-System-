@@ -18,6 +18,9 @@ import { CATEGORIES, formatDate } from '../utils';
 import Spinner from '../components/Spinner';
 import Modal from '../components/Modal';
 
+const RED = '#ff0613';
+const BLACK = '#0A0A0A';
+
 function currentMonth() {
   return new Date().toISOString().slice(0, 7);
 }
@@ -341,54 +344,55 @@ export default function ReportsPage() {
 
   // raw + format kept separate so AnimatedValue can count up the underlying number
   // and re-format it (with commas / % / KSh) on every animation frame.
+  // Strictly alternating red/black — no colors outside the brand palette.
   const summaryCards = [
     {
       label: 'Total Trainings',
       raw: rows ? rows.length : 0,
       format: (n) => Math.round(n),
       Icon: BookText,
-      accent: 'text-[#ff0613] bg-red-50',
-      border: 'border-t-[#ff0613]',
+      color: RED,
+      accentBg: 'bg-red-50',
     },
     {
       label: 'Total Nominees',
       raw: totals.nominees,
       format: (n) => Math.round(n),
       Icon: Users,
-      accent: 'text-[#ff0613] bg-amber-50',
-      border: 'border-t-[#ff0613]',
+      color: BLACK,
+      accentBg: 'bg-zinc-100',
     },
     {
       label: 'Total Attendees',
       raw: totals.attendees,
       format: (n) => Math.round(n),
       Icon: UserCheck,
-      accent: 'text-[#ff0613] bg-emerald-50',
-      border: 'border-t-[#ff0613]',
+      color: RED,
+      accentBg: 'bg-red-50',
     },
     {
       label: 'Total Absentees',
       raw: totals.absentees,
       format: (n) => Math.round(n),
       Icon: UserX,
-      accent: 'text-red-600 bg-red-50',
-      border: 'border-t-red-500',
+      color: BLACK,
+      accentBg: 'bg-zinc-100',
     },
     {
       label: 'Attendance Rate',
       raw: overallRate,
       format: (n) => `${n.toFixed(1)}%`,
       Icon: Percent,
-      accent: 'text-zinc-700 bg-zinc-100',
-      border: 'border-t-zinc-800',
+      color: RED,
+      accentBg: 'bg-red-50',
     },
     {
       label: 'Total Training Cost',
       raw: totals.cost,
       format: (n) => formatKES(n),
       Icon: Wallet,
-      accent: 'text-slate-600 bg-slate-100',
-      border: 'border-t-slate-400',
+      color: BLACK,
+      accentBg: 'bg-zinc-100',
       wide: true,
     },
   ];
@@ -476,21 +480,22 @@ export default function ReportsPage() {
       <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-6">
         {rows === null
           ? summaryCards.map((c) => <KpiSkeleton key={c.label} />)
-          : summaryCards.map(({ label, raw, format, Icon, accent, border, wide }, i) => (
+          : summaryCards.map(({ label, raw, format, Icon, color, accentBg, wide }, i) => (
             <div
               key={label}
-              style={{ animationDelay: `${i * 60}ms` }}
-              className={`card group animate-fade-slide-in border-t-[3px] ${border}`}
+              style={{ animationDelay: `${i * 60}ms`, borderTopColor: color }}
+              className="card group animate-fade-slide-in border-t-[3px]"
             >
               <div className="card-body flex items-center justify-between gap-3">
                 <div className="min-w-0">
-                  <div className="mb-1 text-xs font-medium text-slate-500">{label}</div>
-                  <div className={wide ? 'whitespace-nowrap text-lg font-bold text-slate-900' : 'text-xl font-bold text-slate-900'}>
+                  <div className="mb-1 text-xs font-medium text-zinc-500">{label}</div>
+                  <div className={wide ? 'whitespace-nowrap text-lg font-bold text-zinc-900' : 'text-xl font-bold text-zinc-900'}>
                     <AnimatedValue value={raw} format={format} />
                   </div>
                 </div>
                 <span
-                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-transform duration-200 group-hover:scale-110 ${accent}`}
+                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-transform duration-200 group-hover:scale-110 ${accentBg}`}
+                  style={{ color }}
                 >
                   <Icon className="h-4 w-4" strokeWidth={2} />
                 </span>

@@ -48,10 +48,6 @@ export default function NavBar() {
     api.listNotifications().then(setNotifications).catch(() => { });
   };
 
-  // Initial load, then poll every 60s as a fallback (e.g. a training becoming due
-  // while the page just sits open). Anything that mutates a training can also call
-  // triggerNotificationRefresh() to update the bell immediately instead of waiting
-  // for the next poll — see utils/notificationBus.js.
   useEffect(() => {
     loadNotifications();
     const interval = setInterval(loadNotifications, 60000);
@@ -132,7 +128,10 @@ export default function NavBar() {
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
         {/* Logo lockup */}
         <NavLink to="/dashboard" className="flex items-center gap-2.5">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-[#F0142F] to-[#8C0018] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.25)] ring-1 ring-black/20">
+          <span
+            className="flex h-9 w-9 items-center justify-center rounded-xl text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.25)] ring-1 ring-black/20"
+            style={{ background: 'linear-gradient(135deg, #ff0613, #930f00)' }}
+          >
             <GraduationCap className="h-[18px] w-[18px]" strokeWidth={2.25} />
           </span>
           <span className="hidden leading-tight sm:flex sm:flex-col">
@@ -143,7 +142,7 @@ export default function NavBar() {
           </span>
         </NavLink>
 
-        {/* Desktop nav — active item gets a sliding underline */}
+        {/* Desktop nav — active item gets a red underline */}
         <nav className="hidden items-center gap-1 md:flex">
           {NAV_ITEMS.map(({ to, label, Icon }) => (
             <NavLink key={to} to={to} className={desktopLinkClass}>
@@ -152,8 +151,9 @@ export default function NavBar() {
                   <Icon className="h-4 w-4" strokeWidth={2} />
                   {label}
                   <span
-                    className={`absolute inset-x-3 -bottom-[1px] h-0.5 rounded-full bg-[#F0142F] transition-transform duration-200 ${isActive ? 'scale-x-100' : 'scale-x-0 group-hover:scale-x-40'
+                    className={`absolute inset-x-3 -bottom-[1px] h-0.5 rounded-full transition-transform duration-200 ${isActive ? 'scale-x-100' : 'scale-x-0 group-hover:scale-x-40'
                       }`}
+                    style={{ backgroundColor: '#ff0613' }}
                   />
                 </>
               )}
@@ -174,7 +174,7 @@ export default function NavBar() {
             >
               <Bell className="h-[18px] w-[18px]" strokeWidth={2} />
               {unreadCount > 0 && (
-                <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-red-500 ring-2 ring-[#0F172A]" />
+                <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-red-500 ring-2 ring-[#0A0A0A]" />
               )}
             </button>
             <div
@@ -185,10 +185,7 @@ export default function NavBar() {
               <div className="flex items-center justify-between border-b border-zinc-100 px-4 py-3">
                 <div className="text-sm font-semibold text-zinc-900">Notifications</div>
                 {unreadCount > 0 && (
-                  <button
-                    onClick={handleMarkAllRead}
-                    className="text-xs font-medium text-[#ff0613] hover:underline"
-                  >
+                  <button onClick={handleMarkAllRead} className="text-xs font-medium text-[#ff0613] hover:underline">
                     Mark all read
                   </button>
                 )}
@@ -204,7 +201,7 @@ export default function NavBar() {
                         className={`flex w-full items-start gap-2 px-4 py-3 text-left text-sm hover:bg-zinc-50 ${n.read ? 'text-zinc-500' : 'text-zinc-800'
                           }`}
                       >
-                        {!n.read && <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500" />}
+                        {!n.read && <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#ff0613]" />}
                         <span className={n.read ? '' : 'font-medium'}>{n.message}</span>
                       </button>
                     </li>
@@ -223,13 +220,14 @@ export default function NavBar() {
               aria-expanded={menuOpen}
               className="flex items-center gap-2 rounded-lg py-1.5 pr-2 pl-1.5 text-sm font-medium text-zinc-200 transition-colors hover:bg-zinc-800"
             >
-              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#ff0613] text-xs font-semibold text-white">
+              <span
+                className="flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold text-white"
+                style={{ backgroundColor: '#ff0613' }}
+              >
                 {initials(user?.name)}
               </span>
               <span className="max-w-[9rem] truncate">{user?.name || 'Account'}</span>
-              <ChevronDown
-                className={`h-3.5 w-3.5 text-zinc-500 transition-transform ${menuOpen ? 'rotate-180' : ''}`}
-              />
+              <ChevronDown className={`h-3.5 w-3.5 text-zinc-500 transition-transform ${menuOpen ? 'rotate-180' : ''}`} />
             </button>
             <div
               role="menu"
@@ -237,7 +235,10 @@ export default function NavBar() {
                 }`}
             >
               <div className="flex items-center gap-3 px-4 py-4">
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#ff0613] text-sm font-semibold text-white">
+                <span
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white"
+                  style={{ backgroundColor: '#ff0613' }}
+                >
                   {initials(user?.name)}
                 </span>
                 <div className="min-w-0">
@@ -270,14 +271,17 @@ export default function NavBar() {
         </div>
       </div>
 
-      {/* Mobile panel — animated height/opacity instead of a hard toggle */}
+      {/* Mobile panel */}
       <div
         className={`grid overflow-hidden border-t border-zinc-800 transition-[grid-template-rows,opacity] duration-200 ease-out md:hidden ${mobileOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
           }`}
       >
         <div className="min-h-0 bg-[#0A0A0A]">
           <div className="flex items-center gap-3 px-4 py-3">
-            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#ff0613] text-sm font-semibold text-white">
+            <span
+              className="flex h-9 w-9 items-center justify-center rounded-full text-sm font-semibold text-white"
+              style={{ backgroundColor: '#ff0613' }}
+            >
               {initials(user?.name)}
             </span>
             <div className="min-w-0">

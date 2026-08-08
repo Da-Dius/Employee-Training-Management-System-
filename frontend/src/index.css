@@ -66,11 +66,16 @@ body {
     @apply p-2 text-sm;
   }
 
-  /* Brand primary — was blue-600, now the corporate red identity color */
+  /* Brand primary — official KRA red (#ff0613), with their own exact hover-darken
+     shade (#d80000) rather than a generic brightness filter. */
   .btn-primary {
-    @apply text-white shadow-sm hover:brightness-110;
+    @apply text-white shadow-sm;
     background-color: #ff0613;
-    box-shadow: 0 1px 2px rgba(255, 6, 19, 0.2);
+    box-shadow: 0 1px 2px rgba(255, 6, 19, 0.25);
+  }
+
+  .btn-primary:hover {
+    background-color: #d80000;
   }
 
   .btn-success {
@@ -102,7 +107,7 @@ body {
 
   .form-input:focus {
     border-color: #ff0613;
-    box-shadow: 0 0 0 3px rgba(255, 6, 19, 0.12);
+    box-shadow: 0 0 0 3px rgba(166, 25, 46, 0.12);
   }
 
   .form-hint {
