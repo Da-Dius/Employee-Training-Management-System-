@@ -38,14 +38,14 @@ export default function SignupPage() {
   if (loading || user) return null;
 
   return (
-    <div className="flex min-h-screen items-center bg-slate-50 py-10">
+    <div className="flex min-h-screen items-center bg-zinc-100 py-10">
       <div className="mx-auto w-full max-w-[440px] px-4">
         <div className="mb-6 text-center">
-          <span className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-600 text-white shadow-sm">
+          <span className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-[#F0142F] to-[#8C0018] text-white shadow-sm">
             <GraduationCap className="h-6 w-6" strokeWidth={2.25} />
           </span>
-          <h4 className="text-lg font-semibold text-slate-900">HRCD Training Management</h4>
-          <div className="text-sm text-slate-500">Create your HR account</div>
+          <h4 className="text-lg font-semibold text-zinc-900">HRCD Training Management</h4>
+          <div className="text-sm text-zinc-500">Create your HR account</div>
         </div>
         <div className="card">
           <div className="card-body">
@@ -84,7 +84,7 @@ export default function SignupPage() {
                 <div className="form-hint">At least 8 characters.</div>
               </div>
               {statusLoaded && !requiresInviteCode ? (
-                <div className="rounded-lg bg-blue-50 px-3 py-2 text-sm text-blue-700">
+                <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-700">
                   You're creating the first HR account for this system — no invite code needed.
                 </div>
               ) : (
@@ -108,7 +108,7 @@ export default function SignupPage() {
           </div>
         </div>
         <div className="mt-4 text-center">
-          <Link to="/login" className="text-sm text-blue-600 hover:underline">
+          <Link to="/login" className="text-sm text-[#ff0613] hover:underline">
             Already have an account? Sign in
           </Link>
         </div>

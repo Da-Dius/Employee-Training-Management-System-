@@ -22,39 +22,39 @@ const CARD_CONFIG = [
     key: 'totalTrainings',
     label: 'Total Trainings',
     Icon: BookText,
-    accent: 'text-blue-600 bg-blue-50',
-    border: 'border-t-blue-500',
+    accent: 'text-[#ff0613] bg-red-50',
+    border: 'border-t-[#ff0613]',
     to: '/trainings',
   },
   {
     key: 'upcomingTrainings',
     label: 'Upcoming Trainings',
     Icon: CalendarDays,
-    accent: 'text-amber-600 bg-amber-50',
-    border: 'border-t-amber-500',
+    accent: 'text-zinc-800 bg-zinc-100',
+    border: 'border-t-[#ff0613]',
     to: '/trainings',
   },
   {
     key: 'completedTrainings',
     label: 'Completed Trainings',
     Icon: CheckCircle2,
-    accent: 'text-emerald-600 bg-emerald-50',
-    border: 'border-t-emerald-500',
+    accent: 'text-zinc-700 bg-zinc-100',
+    border: 'border-t-[#ff0613]',
     to: '/trainings',
   },
   {
     key: 'totalNominees',
     label: 'Total Nominees',
     Icon: Users,
-    accent: 'text-violet-600 bg-violet-50',
-    border: 'border-t-violet-500',
+    accent: 'text-amber-700 bg-amber-50',
+    border: 'border-t-[#ff0613]',
   },
   {
     key: 'totalAttendees',
     label: 'Total Attendees',
     Icon: UserCheck,
-    accent: 'text-cyan-600 bg-cyan-50',
-    border: 'border-t-cyan-500',
+    accent: 'text-zinc-500 bg-zinc-100',
+    border: 'border-t-[#ff0613]',
   },
 ];
 
@@ -313,7 +313,7 @@ export default function DashboardPage() {
               <h2 className="flex items-center gap-2 text-base font-semibold text-slate-900">
                 <CalendarClock className="h-[18px] w-[18px]" strokeWidth={2} />Upcoming Trainings
               </h2>
-              <Link to="/trainings" className="inline-flex items-center gap-1 text-sm font-medium text-blue-600 hover:underline">
+              <Link to="/trainings" className="inline-flex items-center gap-1 text-sm font-medium text-[#ff0613] hover:underline">
                 View all<ArrowRight className="h-3.5 w-3.5" strokeWidth={2} />
               </Link>
             </div>
@@ -323,7 +323,7 @@ export default function DashboardPage() {
             {upcoming && upcoming.length === 0 && (
               <div className="py-8 text-center text-sm text-slate-400">
                 Nothing scheduled yet.{' '}
-                <Link to="/trainings" className="font-medium text-blue-600 hover:underline">
+                <Link to="/trainings" className="font-medium text-[#ff0613] hover:underline">
                   Create a training
                 </Link>{' '}
                 to see it here.
@@ -341,13 +341,13 @@ export default function DashboardPage() {
         </div>
 
         {/* Recently Completed */}
-        <div className="card card-accent-emerald">
+        <div className="card border-t-[3px] border-t-zinc-800">
           <div className="card-body">
             <div className="section-heading">
               <h2 className="flex items-center gap-2 text-base font-semibold text-slate-900">
                 <History className="h-[18px] w-[18px]" strokeWidth={2} />Recently Completed
               </h2>
-              <Link to="/trainings" className="inline-flex items-center gap-1 text-sm font-medium text-blue-600 hover:underline">
+              <Link to="/trainings" className="inline-flex items-center gap-1 text-sm font-medium text-[#ff0613] hover:underline">
                 View all<ArrowRight className="h-3.5 w-3.5" strokeWidth={2} />
               </Link>
             </div>
