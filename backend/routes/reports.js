@@ -5,69 +5,22 @@ const { Training } = require('../db/database');
 const router = express.Router();
 
 function asyncHandler(fn) {
-  return (req, res, next) =>
-    fn(req, res, next).catch(next);
+  return (req, res, next) => fn(req, res, next).catch(next);
 }
 
 function escapeRegex(str) {
-  return str.replace(
-    /[.*+?^${}()|[\]\\]/g,
-    '\\$&'
-  );
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-/*
- * Build the monthly training report.
- *
- * Training-level filters:
- * - month
- * - category
- * - training name
- *
- * Nominee-level filter:
- * - department
- *
- * Department is stored on the Nominee document,
- * therefore it is applied after the nominees lookup.
- */
-async function buildMonthlyReport({
-  month,
-  category,
-  department,
-  name,
-} = {}) {
+// GET /api/reports/monthly?month=2026-07&category=Technical&department=Finance&name=digital
+async function buildMonthlyReport({ month, category, department, name } = {}) {
   const match = {};
-
-  /*
-   * trainingDate is stored as YYYY-MM-DD.
-   * A prefix match on YYYY-MM allows us to
-   * filter by month.
-   */
-  if (month) {
-    match.trainingDate = {
-      $regex: `^${escapeRegex(month)}`,
-    };
-  }
-
-  if (category) {
-    match.category = category;
-  }
-
-  if (name) {
-    match.name = {
-      $regex: escapeRegex(name),
-      $options: 'i',
-    };
-  }
+  if (month) match.trainingDate = { $regex: `^${escapeRegex(month)}` };
+  if (category) match.category = category;
+  if (name) match.name = { $regex: escapeRegex(name), $options: 'i' };
 
   const pipeline = [
-    {
-      $match: match,
-    },
-
-    /*
-     * Attach nominees belonging to each training.
-     */
+    { $match: match },
     {
       $lookup: {
         from: 'nominees',
@@ -78,86 +31,41 @@ async function buildMonthlyReport({
     },
   ];
 
-  /*
-   * Department belongs to nominees rather
-   * than the training itself.
-   */
   if (department) {
     pipeline.push({
-      $match: {
-        'nominees.department': {
-          $regex: escapeRegex(department),
-          $options: 'i',
-        },
-      },
+      $match: { 'nominees.department': { $regex: escapeRegex(department), $options: 'i' } },
     });
   }
 
   pipeline.push(
     {
       $addFields: {
-        /*
-         * Total number of nominees.
-         */
-        nominee_count: {
-          $size: '$nominees',
-        },
-
-        /*
-         * Explicitly marked as Attended.
-         */
+        nominee_count: { $size: '$nominees' },
         attendee_count: {
           $size: {
             $filter: {
               input: '$nominees',
               as: 'n',
-              cond: {
-                $eq: [
-                  '$$n.attendanceStatus',
-                  'Attended',
-                ],
-              },
+              cond: { $eq: ['$$n.attendanceStatus', 'Attended'] },
             },
           },
         },
-
-        /*
-         * Explicitly marked as Did Not Attend.
-         */
         absentee_count: {
           $size: {
             $filter: {
               input: '$nominees',
               as: 'n',
-              cond: {
-                $eq: [
-                  '$$n.attendanceStatus',
-                  'Did Not Attend',
-                ],
-              },
+              cond: { $eq: ['$$n.attendanceStatus', 'Did Not Attend'] },
             },
           },
         },
       },
     },
-
-    /*
-     * Most recent training first.
-     */
-    {
-      $sort: {
-        trainingDate: -1,
-      },
-    }
+    { $sort: { trainingDate: -1 } }
   );
 
-  const rows =
-    await Training.aggregate(pipeline);
+  const rows = await Training.aggregate(pipeline);
 
-  /*
-   * Return the API structure expected by
-   * ReportsPage.jsx.
-   */
   return rows.map((r) => ({
     id: r._id,
     name: r.name,
@@ -173,219 +81,199 @@ async function buildMonthlyReport({
   }));
 }
 
-/*
- * GET /api/reports/monthly
- *
- * Example:
- *
- * /api/reports/monthly
- * ?month=2026-07
- * &category=Technical
- * &department=Finance
- * &name=digital
- */
-router.get(
-  '/monthly',
-  asyncHandler(async (req, res) => {
-    const {
-      month,
-      category,
-      department,
-      name,
-    } = req.query;
+// One row per nominee, not per training — for people who need names, not just counts.
+async function buildAttendeeReport({ month, category, department, name } = {}) {
+  const trainingMatch = {};
+  if (month) trainingMatch.trainingDate = { $regex: `^${escapeRegex(month)}` };
+  if (category) trainingMatch.category = category;
+  if (name) trainingMatch.name = { $regex: escapeRegex(name), $options: 'i' };
 
-    const rows =
-      await buildMonthlyReport({
-        month,
-        category,
-        department,
-        name,
-      });
-
-    res.json(rows);
-  })
-);
-
-/*
- * GET /api/reports/monthly/export
- *
- * Generates an Excel version of the same
- * filtered monthly report.
- */
-router.get(
-  '/monthly/export',
-  asyncHandler(async (req, res) => {
-    const {
-      month,
-      category,
-      department,
-      name,
-    } = req.query;
-
-    const rows =
-      await buildMonthlyReport({
-        month,
-        category,
-        department,
-        name,
-      });
-
-    const workbook =
-      new ExcelJS.Workbook();
-
-    const sheet =
-      workbook.addWorksheet(
-        'Monthly Report'
-      );
-
-    /*
-     * Excel columns.
-     */
-    sheet.columns = [
-      {
-        header: 'Training Name',
-        key: 'name',
-        width: 30,
+  const pipeline = [
+    { $match: trainingMatch },
+    {
+      $lookup: {
+        from: 'nominees',
+        localField: '_id',
+        foreignField: 'training',
+        as: 'nominees',
       },
+    },
+    { $unwind: '$nominees' },
+  ];
 
-      {
-        header: 'Category',
-        key: 'category',
-        width: 16,
-      },
-
-      {
-        header: 'Training Date',
-        key: 'training_date',
-        width: 15,
-      },
-
-      {
-        header: 'Venue',
-        key: 'venue',
-        width: 20,
-      },
-
-      {
-        header: 'Nominees',
-        key: 'nominee_count',
-        width: 10,
-      },
-
-      {
-        header: 'Attendees',
-        key: 'attendee_count',
-        width: 10,
-      },
-
-      {
-        header: 'Absentees',
-        key: 'absentee_count',
-        width: 10,
-      },
-
-      {
-        header: 'Attendance Rate',
-        key: 'attendance_rate',
-        width: 14,
-      },
-
-      {
-        header: 'Cost of Training',
-        key: 'cost',
-        width: 15,
-      },
-
-      {
-        header: 'Paid or Free',
-        key: 'paid_label',
-        width: 12,
-      },
-
-      {
-        header: 'Per Diem',
-        key: 'per_diem_label',
-        width: 10,
-      },
-    ];
-
-    /*
-     * Format Excel header.
-     */
-    sheet.getRow(1).font = {
-      bold: true,
-    };
-
-    /*
-     * Add report rows.
-     */
-    rows.forEach((r) => {
-      sheet.addRow({
-        name: r.name,
-
-        category: r.category,
-
-        training_date:
-          r.training_date,
-
-        venue: r.venue,
-
-        nominee_count:
-          r.nominee_count,
-
-        attendee_count:
-          r.attendee_count,
-
-        absentee_count:
-          r.absentee_count,
-
-        attendance_rate:
-          r.nominee_count > 0
-            ? `${Math.round(
-              (r.attendee_count /
-                r.nominee_count) *
-              100
-            )}%`
-            : '-',
-
-        cost: r.cost,
-
-        paid_label: r.paid
-          ? 'Paid'
-          : 'Free',
-
-        per_diem_label: r.per_diem
-          ? 'Yes'
-          : 'No',
-      });
+  if (department) {
+    pipeline.push({
+      $match: { 'nominees.department': { $regex: escapeRegex(department), $options: 'i' } },
     });
+  }
 
-    /*
-     * Filename.
-     */
-    const monthLabel =
-      month || 'all';
+  pipeline.push({ $sort: { trainingDate: -1, 'nominees.name': 1 } });
 
-    /*
-     * Tell browser this is an Excel file.
-     */
-    res.setHeader(
-      'Content-Type',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    );
+  const rows = await Training.aggregate(pipeline);
 
-    res.setHeader(
-      'Content-Disposition',
-      `attachment; filename="training-report-${monthLabel}.xlsx"`
-    );
+  return rows.map((r) => ({
+    training_name: r.name,
+    training_date: r.trainingDate,
+    category: r.category,
+    employee_name: r.nominees.name,
+    employee_number: r.nominees.employeeNumber,
+    department: r.nominees.department,
+    division: r.nominees.division,
+    section: r.nominees.section,
+    station_region: r.nominees.stationRegion,
+    attendance_status: r.nominees.attendanceStatus,
+    employee_confirmed: !!r.nominees.employeeConfirmed,
+  }));
+}
 
-    /*
-     * Write workbook directly to response.
-     */
-    await workbook.xlsx.write(res);
+// Department-level breakdown — nominee_count and attendee_count per department, so the
+// frontend can compute both participation (who's sending people) and no-show rate
+// (who's sending people who then don't show) in one call. Deliberately ignores the
+// `department` filter itself, since this endpoint's whole purpose is the breakdown.
+async function buildDepartmentStats({ month, category, name } = {}) {
+  const trainingMatch = {};
+  if (month) trainingMatch.trainingDate = { $regex: `^${escapeRegex(month)}` };
+  if (category) trainingMatch.category = category;
+  if (name) trainingMatch.name = { $regex: escapeRegex(name), $options: 'i' };
 
-    res.end();
-  })
-);
+  const rows = await Training.aggregate([
+    { $match: trainingMatch },
+    {
+      $lookup: {
+        from: 'nominees',
+        localField: '_id',
+        foreignField: 'training',
+        as: 'nominees',
+      },
+    },
+    { $unwind: '$nominees' },
+    {
+      $group: {
+        _id: { $ifNull: ['$nominees.department', 'Unspecified'] },
+        nominee_count: { $sum: 1 },
+        attendee_count: {
+          $sum: { $cond: [{ $eq: ['$nominees.attendanceStatus', 'Attended'] }, 1, 0] },
+        },
+      },
+    },
+    { $sort: { nominee_count: -1 } },
+  ]);
+
+  return rows.map((r) => ({
+    department: r._id,
+    nominee_count: r.nominee_count,
+    attendee_count: r.attendee_count,
+  }));
+}
+
+router.get('/monthly', asyncHandler(async (req, res) => {
+  const { month, category, department, name } = req.query;
+  const rows = await buildMonthlyReport({ month, category, department, name });
+  res.json(rows);
+}));
+
+router.get('/monthly/department-stats', asyncHandler(async (req, res) => {
+  const { month, category, name } = req.query;
+  const rows = await buildDepartmentStats({ month, category, name });
+  res.json(rows);
+}));
+
+router.get('/monthly/export', asyncHandler(async (req, res) => {
+  const { month, category, department, name } = req.query;
+  const rows = await buildMonthlyReport({ month, category, department, name });
+
+  const workbook = new ExcelJS.Workbook();
+  const sheet = workbook.addWorksheet('Monthly Report');
+
+  sheet.columns = [
+    { header: 'Training Name', key: 'name', width: 30 },
+    { header: 'Category', key: 'category', width: 16 },
+    { header: 'Training Date', key: 'training_date', width: 15 },
+    { header: 'Venue', key: 'venue', width: 20 },
+    { header: 'Nominees', key: 'nominee_count', width: 10 },
+    { header: 'Attendees', key: 'attendee_count', width: 10 },
+    { header: 'Absentees', key: 'absentee_count', width: 10 },
+    { header: 'Attendance Rate', key: 'attendance_rate', width: 14 },
+    { header: 'Cost of Training', key: 'cost', width: 15 },
+    { header: 'Paid or Free', key: 'paid_label', width: 12 },
+    { header: 'Per Diem', key: 'per_diem_label', width: 10 },
+  ];
+  sheet.getRow(1).font = { bold: true };
+
+  rows.forEach((r) => {
+    sheet.addRow({
+      name: r.name,
+      category: r.category,
+      training_date: r.training_date,
+      venue: r.venue,
+      nominee_count: r.nominee_count,
+      attendee_count: r.attendee_count,
+      absentee_count: r.absentee_count,
+      attendance_rate: r.nominee_count > 0 ? `${Math.round((r.attendee_count / r.nominee_count) * 100)}%` : '-',
+      cost: r.cost,
+      paid_label: r.paid ? 'Paid' : 'Free',
+      per_diem_label: r.per_diem ? 'Yes' : 'No',
+    });
+  });
+
+  const monthLabel = month || 'all';
+  res.setHeader(
+    'Content-Type',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+  );
+  res.setHeader('Content-Disposition', `attachment; filename="training-report-${monthLabel}.xlsx"`);
+
+  await workbook.xlsx.write(res);
+  res.end();
+}));
+
+router.get('/monthly/attendees/export', asyncHandler(async (req, res) => {
+  const { month, category, department, name } = req.query;
+  const rows = await buildAttendeeReport({ month, category, department, name });
+
+  const workbook = new ExcelJS.Workbook();
+  const sheet = workbook.addWorksheet('Attendee List');
+
+  sheet.columns = [
+    { header: 'Training Name', key: 'training_name', width: 30 },
+    { header: 'Training Date', key: 'training_date', width: 15 },
+    { header: 'Category', key: 'category', width: 16 },
+    { header: 'Employee Name', key: 'employee_name', width: 24 },
+    { header: 'Employee Number', key: 'employee_number', width: 16 },
+    { header: 'Department', key: 'department', width: 18 },
+    { header: 'Division', key: 'division', width: 18 },
+    { header: 'Section', key: 'section', width: 16 },
+    { header: 'Station/Region', key: 'station_region', width: 16 },
+    { header: 'Attendance Status', key: 'attendance_status', width: 16 },
+    { header: 'Self-Confirmed', key: 'confirmed_label', width: 14 },
+  ];
+  sheet.getRow(1).font = { bold: true };
+
+  rows.forEach((r) => {
+    sheet.addRow({
+      training_name: r.training_name,
+      training_date: r.training_date,
+      category: r.category,
+      employee_name: r.employee_name,
+      employee_number: r.employee_number,
+      department: r.department,
+      division: r.division,
+      section: r.section,
+      station_region: r.station_region,
+      attendance_status: r.attendance_status,
+      confirmed_label: r.employee_confirmed ? 'Yes' : 'No',
+    });
+  });
+
+  const monthLabel = month || 'all';
+  res.setHeader(
+    'Content-Type',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+  );
+  res.setHeader('Content-Disposition', `attachment; filename="attendee-list-${monthLabel}.xlsx"`);
+
+  await workbook.xlsx.write(res);
+  res.end();
+}));
 
 module.exports = router;

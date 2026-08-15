@@ -12,6 +12,9 @@ import {
   BarChart3,
   Eye,
   Inbox,
+  Building2,
+  TrendingUp,
+  Users2,
 } from 'lucide-react';
 import * as api from '../api/client';
 import { CATEGORIES, formatDate } from '../utils';
@@ -20,6 +23,149 @@ import Modal from '../components/Modal';
 
 const RED = '#ff0613';
 const BLACK = '#0A0A0A';
+
+function formatKESShort(amount) {
+  const n = Number(amount) || 0;
+  return `KSh ${n.toLocaleString('en-KE')}`;
+}
+
+// Cost per completed attendance, by category — computed entirely from rows already
+// fetched for the main table, no extra request needed.
+function CostPerAttendeeByCategory({ rows }) {
+  const byCategory = {};
+  rows.forEach((r) => {
+    if (!byCategory[r.category]) byCategory[r.category] = { cost: 0, attendees: 0 };
+    byCategory[r.category].cost += Number(r.cost) || 0;
+    byCategory[r.category].attendees += r.attendee_count;
+  });
+  const entries = Object.entries(byCategory)
+    .map(([category, v]) => ({
+      category,
+      perAttendee: v.attendees > 0 ? v.cost / v.attendees : null,
+      cost: v.cost,
+      attendees: v.attendees,
+    }))
+    .sort((a, b) => (b.perAttendee || 0) - (a.perAttendee || 0));
+
+  if (entries.length === 0) return <div className="py-6 text-center text-sm text-zinc-400">No data yet.</div>;
+
+  const max = Math.max(...entries.map((e) => e.perAttendee || 0), 1);
+
+  return (
+    <div className="space-y-3">
+      {entries.map((e) => (
+        <div key={e.category}>
+          <div className="mb-1 flex items-center justify-between text-xs">
+            <span className="font-medium text-zinc-700">{e.category}</span>
+            <span className="text-zinc-500">
+              {e.perAttendee === null ? 'No attendees yet' : `${formatKESShort(e.perAttendee)} / attendee`}
+            </span>
+          </div>
+          <div className="h-2 overflow-hidden rounded-full bg-zinc-100">
+            <div
+              className="h-full rounded-full transition-all"
+              style={{ width: `${e.perAttendee ? (e.perAttendee / max) * 100 : 0}%`, backgroundColor: RED }}
+            />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Attendance rate + spend, one bucket per month — only meaningful once more than one
+// month is present in the currently filtered rows (i.e. no single-month filter active).
+function MonthlyTrend({ rows }) {
+  const byMonth = {};
+  rows.forEach((r) => {
+    const month = r.training_date.slice(0, 7);
+    if (!byMonth[month]) byMonth[month] = { cost: 0, nominees: 0, attendees: 0 };
+    byMonth[month].cost += Number(r.cost) || 0;
+    byMonth[month].nominees += r.nominee_count;
+    byMonth[month].attendees += r.attendee_count;
+  });
+  const months = Object.keys(byMonth).sort();
+
+  if (months.length < 2) {
+    return (
+      <div className="py-6 text-center text-sm text-zinc-400">
+        Clear the Month filter to see a trend across multiple months.
+      </div>
+    );
+  }
+
+  const maxCost = Math.max(...months.map((m) => byMonth[m].cost), 1);
+
+  return (
+    <div className="flex items-end gap-3 overflow-x-auto pb-1">
+      {months.map((m) => {
+        const data = byMonth[m];
+        const rate = data.nominees > 0 ? Math.round((data.attendees / data.nominees) * 100) : 0;
+        const barHeight = Math.max((data.cost / maxCost) * 100, 4);
+        return (
+          <div key={m} className="flex min-w-[64px] flex-1 flex-col items-center gap-1.5">
+            <div className="flex h-28 w-full items-end justify-center">
+              <div
+                className="w-8 rounded-t-md transition-all"
+                style={{ height: `${barHeight}%`, backgroundColor: BLACK }}
+                title={formatKESShort(data.cost)}
+              />
+            </div>
+            <div className="text-[11px] font-semibold" style={{ color: RED }}>
+              {rate}%
+            </div>
+            <div className="text-[10px] text-zinc-400">{m}</div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// Department participation vs no-show rate — fetched separately since it needs a
+// per-department aggregation the main table rows don't carry.
+function DepartmentParticipation({ stats }) {
+  if (stats === null) {
+    return (
+      <div className="flex justify-center py-6">
+        <Spinner small />
+      </div>
+    );
+  }
+  if (stats.length === 0) return <div className="py-6 text-center text-sm text-zinc-400">No data yet.</div>;
+
+  const top = stats.slice(0, 6);
+  const max = Math.max(...top.map((d) => d.nominee_count), 1);
+
+  return (
+    <div className="space-y-3">
+      {top.map((d) => {
+        const noShowRate = d.nominee_count > 0 ? Math.round(((d.nominee_count - d.attendee_count) / d.nominee_count) * 100) : 0;
+        return (
+          <div key={d.department}>
+            <div className="mb-1 flex items-center justify-between text-xs">
+              <span className="font-medium text-zinc-700">{d.department}</span>
+              <span className="text-zinc-500">
+                {d.nominee_count} sent &middot;{' '}
+                <span className={noShowRate > 30 ? 'font-semibold' : ''} style={noShowRate > 30 ? { color: RED } : undefined}>
+                  {noShowRate}% no-show
+                </span>
+              </span>
+            </div>
+            <div className="h-2 overflow-hidden rounded-full bg-zinc-100">
+              <div
+                className="h-full rounded-full transition-all"
+                style={{ width: `${(d.nominee_count / max) * 100}%`, backgroundColor: BLACK }}
+              />
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+
 
 function currentMonth() {
   return new Date().toISOString().slice(0, 7);
@@ -297,6 +443,7 @@ export default function ReportsPage() {
   const [rows, setRows] = useState(null);
   const [error, setError] = useState('');
   const [detailId, setDetailId] = useState(null);
+  const [departmentStats, setDepartmentStats] = useState(null);
   const debounceRef = useRef(null);
   const isFirstRun = useRef(true);
 
@@ -310,8 +457,20 @@ export default function ReportsPage() {
     }
   }, []);
 
+  const loadDepartmentStats = useCallback(async (f) => {
+    try {
+      // department-stats deliberately ignores the department filter itself — see reports.js
+      const { department, ...rest } = f;
+      const data = await api.listDepartmentStats(rest);
+      setDepartmentStats(data);
+    } catch {
+      setDepartmentStats([]);
+    }
+  }, []);
+
   useEffect(() => {
     load(filters);
+    loadDepartmentStats(filters);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -321,9 +480,12 @@ export default function ReportsPage() {
       return;
     }
     clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => load(filters), 300);
+    debounceRef.current = setTimeout(() => {
+      load(filters);
+      loadDepartmentStats(filters);
+    }, 300);
     return () => clearTimeout(debounceRef.current);
-  }, [filters, load]);
+  }, [filters, load, loadDepartmentStats]);
 
   const handleReset = () => setFilters({ month: '', category: '', department: '', name: '' });
 
@@ -473,6 +635,13 @@ export default function ReportsPage() {
           <a className="btn btn-success sm:col-span-1" href={api.monthlyReportExportUrl(filters)}>
             <FileSpreadsheet className="h-4 w-4" strokeWidth={2} />Export to Excel
           </a>
+          <a
+            className="btn btn-outline sm:col-span-2"
+            href={api.monthlyAttendeeExportUrl(filters)}
+            style={{ borderColor: `${RED}33`, color: RED }}
+          >
+            <Users2 className="h-4 w-4" strokeWidth={2} />Export Attendee List
+          </a>
         </div>
       </div>
 
@@ -528,6 +697,41 @@ export default function ReportsPage() {
               </div>
             </div>
             <TrainingActivityChart rows={rows} />
+          </div>
+        </div>
+      )}
+
+      {/* Analysis: department participation, cost per attendee, monthly trend */}
+      {rows && rows.length > 0 && (
+        <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <div className="card border-t-[3px]" style={{ borderTopColor: BLACK }}>
+            <div className="card-body">
+              <h2 className="mb-1 flex items-center gap-2 text-sm font-semibold text-zinc-900">
+                <Building2 className="h-4 w-4" strokeWidth={2} />Department Participation
+              </h2>
+              <p className="mb-4 text-xs text-zinc-500">Nominees sent and no-show rate, by department.</p>
+              <DepartmentParticipation stats={departmentStats} />
+            </div>
+          </div>
+
+          <div className="card border-t-[3px]" style={{ borderTopColor: RED }}>
+            <div className="card-body">
+              <h2 className="mb-1 flex items-center gap-2 text-sm font-semibold text-zinc-900">
+                <Wallet className="h-4 w-4" strokeWidth={2} />Cost per Attendee
+              </h2>
+              <p className="mb-4 text-xs text-zinc-500">Training spend divided by actual attendees, by category.</p>
+              <CostPerAttendeeByCategory rows={rows} />
+            </div>
+          </div>
+
+          <div className="card border-t-[3px]" style={{ borderTopColor: BLACK }}>
+            <div className="card-body">
+              <h2 className="mb-1 flex items-center gap-2 text-sm font-semibold text-zinc-900">
+                <TrendingUp className="h-4 w-4" strokeWidth={2} />Monthly Trend
+              </h2>
+              <p className="mb-4 text-xs text-zinc-500">Attendance rate (%) and spend (bar height), by month.</p>
+              <MonthlyTrend rows={rows} />
+            </div>
           </div>
         </div>
       )}

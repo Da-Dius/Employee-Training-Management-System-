@@ -137,3 +137,13 @@ export const sendConfirmationEmail = (trainingId, nomineeId) =>
   request(`${BASE}/trainings/${trainingId}/nominees/${nomineeId}/send-confirmation`, {
     method: 'POST'
   });
+
+export const monthlyAttendeeExportUrl = (filters = {}) => {
+  const qs = new URLSearchParams(Object.entries(filters).filter(([, v]) => v));
+  return `${BASE}/reports/monthly/attendees/export?${qs.toString()}`;
+};
+
+export const listDepartmentStats = (filters = {}) => {
+  const qs = new URLSearchParams(Object.entries(filters).filter(([, v]) => v));
+  return request(`${BASE}/reports/monthly/department-stats?${qs.toString()}`);
+};
