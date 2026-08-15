@@ -48,8 +48,19 @@ export const listTrainings = (params = {}) => {
   return request(`${BASE}/trainings?${qs.toString()}`);
 };
 export const getTraining = (id) => request(`${BASE}/trainings/${id}`);
-export const createTraining = (data) => request(`${BASE}/trainings`, { method: 'POST', ...jsonBody(data) });
-export const updateTraining = (id, data) => request(`${BASE}/trainings/${id}`, { method: 'PUT', ...jsonBody(data) });
+
+export const createTraining = async (formData) => {
+  const res = await fetch(`${BASE}/trainings`, { method: 'POST', body: formData });
+  const body = await res.json();
+  if (!res.ok) throw new Error(body.error || 'Request failed');
+  return body;
+};
+export const updateTraining = async (id, formData) => {
+  const res = await fetch(`${BASE}/trainings/${id}`, { method: 'PUT', body: formData });
+  const body = await res.json();
+  if (!res.ok) throw new Error(body.error || 'Request failed');
+  return body;
+};
 export const deleteTraining = (id) => request(`${BASE}/trainings/${id}`, { method: 'DELETE' });
 
 export const listNominees = (trainingId) => request(`${BASE}/trainings/${trainingId}/nominees`);
@@ -62,6 +73,15 @@ export const setAttendance = (trainingId, nomineeId, attendance_status) =>
   });
 export const deleteNominee = (trainingId, nomineeId) =>
   request(`${BASE}/trainings/${trainingId}/nominees/${nomineeId}`, { method: 'DELETE' });
+
+export const importNominees = async (trainingId, file) => {
+  const form = new FormData();
+  form.append('file', file);
+  const res = await fetch(`${BASE}/trainings/${trainingId}/nominees/import`, { method: 'POST', body: form });
+  const body = await res.json();
+  if (!res.ok) throw new Error(body.error || 'Import failed');
+  return body;
+};
 
 export const listEvidence = (trainingId) => request(`${BASE}/trainings/${trainingId}/evidence`);
 export const uploadEvidence = async (trainingId, files) => {
@@ -76,6 +96,8 @@ export const deleteEvidence = (trainingId, evidenceId) =>
   request(`${BASE}/trainings/${trainingId}/evidence/${evidenceId}`, { method: 'DELETE' });
 export const evidenceDownloadUrl = (trainingId, evidenceId) =>
   `${BASE}/trainings/${trainingId}/evidence/${evidenceId}/download`;
+
+export const trainingLpoAttachmentDownloadUrl = (id) => `${BASE}/trainings/${id}/lpo-attachment/download`;
 
 export const getMonthlyReport = (filters = {}) => {
   const qs = new URLSearchParams(Object.entries(filters).filter(([, v]) => v));
@@ -109,4 +131,9 @@ export const updateEmployee = (id, data) =>
 export const deleteEmployee = (id) =>
   request(`${BASE}/employees/${id}`, {
     method: 'DELETE',
+  });
+
+export const sendConfirmationEmail = (trainingId, nomineeId) =>
+  request(`${BASE}/trainings/${trainingId}/nominees/${nomineeId}/send-confirmation`, {
+    method: 'POST'
   });

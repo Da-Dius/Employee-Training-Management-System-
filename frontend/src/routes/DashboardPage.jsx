@@ -287,16 +287,15 @@ export default function DashboardPage() {
               </div>
             );
             const commonProps = {
-              key,
               style: { animationDelay: `${i * 60}ms`, borderTopColor: color },
               className: `card group animate-fade-slide-in border-t-[3px] ${to ? 'card-hover' : ''}`,
             };
             return to ? (
-              <Link to={to} {...commonProps}>
+              <Link key={key} to={to} {...commonProps}>
                 {content}
               </Link>
             ) : (
-              <div {...commonProps}>{content}</div>
+              <div key={key} {...commonProps}>{content}</div>
             );
           })}
       </div>

@@ -6,7 +6,6 @@ import { CATEGORIES, formatDate, formatMoney, statusBadgeClass } from '../utils'
 import { useToast } from '../context/ToastContext';
 import TrainingFormModal from '../components/TrainingFormModal';
 import Spinner from '../components/Spinner';
-import { triggerNotificationRefresh } from '../notificationBus';
 
 export default function TrainingsPage() {
   const navigate = useNavigate();
@@ -64,7 +63,6 @@ export default function TrainingsPage() {
     }
     setModalState({ show: false, training: null });
     load(filters);
-    triggerNotificationRefresh();
   };
 
   return (
@@ -130,7 +128,7 @@ export default function TrainingsPage() {
                 <th>Date</th>
                 <th>Venue</th>
                 <th>Cost</th>
-                <th>Paid</th>
+                <th>Service Entry</th>
                 <th>Per Diem</th>
                 <th>Status</th>
                 <th className="text-right">Actions</th>
@@ -168,7 +166,9 @@ export default function TrainingsPage() {
                     <td>{t.venue || '-'}</td>
                     <td>{formatMoney(t.cost)}</td>
                     <td>
-                      <span className={t.paid ? 'badge badge-green' : 'badge badge-slate'}>{t.paid ? 'Yes' : 'No'}</span>
+                      <span className={t.service_entry === 'Paid' ? 'badge badge-green' : 'badge badge-slate'}>
+                        {t.service_entry}
+                      </span>
                     </td>
                     <td>
                       <span className={t.per_diem ? 'badge badge-green' : 'badge badge-slate'}>

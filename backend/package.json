@@ -15,7 +15,8 @@
     "express-rate-limit": "^8.6.1",
     "express-session": "^1.18.1",
     "mongoose": "^9.8.1",
-    "multer": "^2.0.1"
+    "multer": "^2.0.1",
+    "nodemailer": "^9.0.5"
   },
   "devDependencies": {
     "nodemon": "^3.1.14"

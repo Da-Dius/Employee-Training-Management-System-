@@ -33,9 +33,24 @@ const trainingSchema = new Schema({
   trainingDate: { type: String, required: true },
   venue: String,
   cost: { type: Number, required: true, default: 0 },
+  // Kept temporarily alongside serviceEntry below while TrainingsPage/TrainingDetailPage/
+  // ReportsPage still read `paid` directly — remove once those are migrated in one pass
+  // so the app never has a half-updated field mid-deploy.
   paid: { type: Boolean, default: false },
   perDiem: { type: Boolean, default: false },
   description: String,
+
+  // New fields
+  trainerName: String,
+  lpoNumber: String,
+  // LPO supporting document (receipt / purchase order proof) — same filename/originalName
+  // pattern as the Evidence model, so it reuses the existing uploads directory and
+  // download convention rather than inventing a second storage scheme.
+  lpoAttachmentFilename: String,
+  lpoAttachmentOriginalName: String,
+  // Replaces the old blunt "Paid Training" checkbox with a purposeful status tied to
+  // the actual procurement workflow (LPO raised -> payment confirmed).
+  serviceEntry: { type: String, enum: ['Paid', 'Not Paid'], default: 'Not Paid' },
 }, { timestamps: true });
 
 const nomineeSchema = new Schema({
@@ -50,6 +65,7 @@ const nomineeSchema = new Schema({
   attendanceStatus: { type: String, default: 'Pending' },
   employeeConfirmed: { type: Boolean, default: false },
   confirmationToken: { type: String, unique: true, sparse: true }, // sparse allows many nulls
+  linkSentAt: Date, // set when the confirmation email is actually sent (not on copy-link)
 }, { timestamps: { createdAt: true, updatedAt: false } });
 
 const employeeSchema = new Schema({

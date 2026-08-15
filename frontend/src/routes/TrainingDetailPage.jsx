@@ -14,12 +14,19 @@ import {
   Paperclip,
   Upload,
   FileText,
+  User,
+  FileSpreadsheet,
+  Download as DownloadIcon,
+  FileUp,
+  Mail,
+  ClipboardList,
 } from 'lucide-react';
 import * as api from '../api/client';
 import { formatDate, formatMoney, statusBadgeClass } from '../utils';
 import { useToast } from '../context/ToastContext';
 import TrainingFormModal from '../components/TrainingFormModal';
 import NomineeFormModal from '../components/NomineeFormModal';
+import NomineeImportModal from '../components/NomineeImportModal';
 import Spinner from '../components/Spinner';
 
 export default function TrainingDetailPage() {
@@ -31,6 +38,7 @@ export default function TrainingDetailPage() {
   const [error, setError] = useState('');
   const [editOpen, setEditOpen] = useState(false);
   const [nomineeModalOpen, setNomineeModalOpen] = useState(false);
+  const [importModalOpen, setImportModalOpen] = useState(false);
   const [uploadFiles, setUploadFiles] = useState(null);
 
   const loadTraining = useCallback(async () => {
@@ -72,16 +80,6 @@ export default function TrainingDetailPage() {
     loadNominees();
   };
 
-  const handleAttendanceChange = async (nomineeId, status) => {
-    try {
-      await api.setAttendance(id, nomineeId, status);
-      showToast('Attendance updated');
-      loadNominees();
-    } catch (e) {
-      showToast(e.message, 'danger');
-    }
-  };
-
   const handleDeleteNominee = async (nomineeId) => {
     if (!window.confirm('Remove this nominee from the training?')) return;
     try {
@@ -91,6 +89,27 @@ export default function TrainingDetailPage() {
       showToast(e.message, 'danger');
     }
   };
+
+  const handleSendConfirmation = async (nomineeId) => {
+    try {
+      await api.sendConfirmationEmail(id, nomineeId);
+      showToast('Confirmation email sent');
+      loadNominees();
+    } catch (e) {
+      showToast(e.message, 'danger');
+    }
+  };
+
+  function timeAgo(dateStr) {
+    if (!dateStr) return null;
+    const diffMs = Date.now() - new Date(dateStr).getTime();
+    const mins = Math.round(diffMs / 60000);
+    if (mins < 1) return 'just now';
+    if (mins < 60) return `${mins}m ago`;
+    const hours = Math.round(mins / 60);
+    if (hours < 24) return `${hours}h ago`;
+    return `${Math.round(hours / 24)}d ago`;
+  }
 
   const handleCopyLink = async (token) => {
     const url = `${window.location.origin}/confirm.html?token=${token}`;
@@ -215,18 +234,48 @@ export default function TrainingDetailPage() {
             </button>
           </div>
           <hr className="my-5 border-slate-100" />
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
             <div>
               <div className="text-xs text-slate-500">Cost of Training</div>
               <div className="font-semibold text-slate-900">{formatMoney(training.cost)}</div>
             </div>
             <div>
-              <div className="text-xs text-slate-500">Paid Training</div>
-              <div className="font-semibold text-slate-900">{training.paid ? 'Yes' : 'No'}</div>
+              <div className="text-xs text-slate-500">Service Entry</div>
+              <span className={training.service_entry === 'Paid' ? 'badge badge-green' : 'badge badge-slate'}>
+                {training.service_entry}
+              </span>
             </div>
             <div>
               <div className="text-xs text-slate-500">Per Diem</div>
-              <div className="font-semibold text-slate-900">{training.per_diem ? 'Yes' : 'No'}</div>
+              <div className="font-semibold text-slate-900">{training.per_diem ? 'Per Diem' : 'Not Per Diem'}</div>
+            </div>
+            <div>
+              <div className="mb-1 flex items-center gap-1 text-xs text-slate-500">
+                <User className="h-3 w-3" strokeWidth={2} />Name of Trainer
+              </div>
+              <div className="font-semibold text-slate-900">{training.trainer_name || '-'}</div>
+            </div>
+            <div>
+              <div className="mb-1 flex items-center gap-1 text-xs text-slate-500">
+                <FileSpreadsheet className="h-3 w-3" strokeWidth={2} />LPO Number
+              </div>
+              <div className="font-semibold text-slate-900">{training.lpo_number || '-'}</div>
+            </div>
+            <div>
+              <div className="mb-1 flex items-center gap-1 text-xs text-slate-500">
+                <Paperclip className="h-3 w-3" strokeWidth={2} />LPO Attachment
+              </div>
+              {training.lpo_attachment_name ? (
+                <a
+                  href={api.trainingLpoAttachmentDownloadUrl(id)}
+                  className="inline-flex items-center gap-1 text-sm font-medium text-blue-600 hover:underline"
+                >
+                  {training.lpo_attachment_name}
+                  <DownloadIcon className="h-3.5 w-3.5" strokeWidth={2} />
+                </a>
+              ) : (
+                <div className="font-semibold text-slate-900">-</div>
+              )}
             </div>
           </div>
           {training.description && (
@@ -242,14 +291,20 @@ export default function TrainingDetailPage() {
         <div className="card-body">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
             <h2 className="flex items-center gap-2 text-base font-semibold text-slate-900">
-              <Users className="h-[18px] w-[18px]" strokeWidth={2} />Nominees &amp; Attendance
+              <Users className="h-[18px] w-[18px]" strokeWidth={2} />Nominees
             </h2>
             <div className="flex flex-wrap gap-2">
+              <Link to={`/trainings/${id}/attendance`} className="btn btn-outline btn-sm">
+                <ClipboardList className="h-4 w-4" strokeWidth={2} />Attendance Register
+              </Link>
               <button className="btn btn-outline btn-sm" onClick={handleCopyAllLinks}>
                 <ClipboardCheck className="h-4 w-4" strokeWidth={2} />Copy All Links
               </button>
               <button className="btn btn-outline btn-sm" onClick={handleExportLinksCsv}>
                 <Download className="h-4 w-4" strokeWidth={2} />Export CSV
+              </button>
+              <button className="btn btn-outline btn-sm" onClick={() => setImportModalOpen(true)}>
+                <FileUp className="h-4 w-4" strokeWidth={2} />Import
               </button>
               <button className="btn btn-primary btn-sm" onClick={() => setNomineeModalOpen(true)}>
                 <UserPlus className="h-4 w-4" strokeWidth={2} />Add Nominee
@@ -266,7 +321,6 @@ export default function TrainingDetailPage() {
                   <th>Division</th>
                   <th>Section</th>
                   <th>Station/Region</th>
-                  <th>Attendance</th>
                   <th>Self-Confirmed</th>
                   <th className="text-right">Actions</th>
                 </tr>
@@ -274,7 +328,7 @@ export default function TrainingDetailPage() {
               <tbody>
                 {nominees.length === 0 && (
                   <tr>
-                    <td colSpan={9} className="py-8 text-center text-slate-400">
+                    <td colSpan={8} className="py-8 text-center text-slate-400">
                       No nominees added yet.
                     </td>
                   </tr>
@@ -288,23 +342,30 @@ export default function TrainingDetailPage() {
                     <td>{n.section || '-'}</td>
                     <td>{n.station_region || '-'}</td>
                     <td>
-                      <select
-                        className="form-input min-w-[9rem] py-1.5 text-xs"
-                        value={n.attendance_status}
-                        onChange={(e) => handleAttendanceChange(n.id, e.target.value)}
-                      >
-                        <option value="Pending">Pending</option>
-                        <option value="Attended">Attended</option>
-                        <option value="Did Not Attend">Did Not Attend</option>
-                      </select>
-                    </td>
-                    <td>
                       {n.employee_confirmed ? (
                         <span className="badge badge-green">Confirmed</span>
                       ) : n.email ? (
-                        <button className="btn btn-outline-primary btn-sm" onClick={() => handleCopyLink(n.confirmation_token)}>
-                          <Link2 className="h-4 w-4" strokeWidth={2} />Copy Link
-                        </button>
+                        <div className="flex flex-col items-start gap-1">
+                          <div className="flex gap-1">
+                            <button
+                              className="btn btn-outline-primary btn-sm"
+                              title="Send confirmation email"
+                              onClick={() => handleSendConfirmation(n.id)}
+                            >
+                              <Mail className="h-4 w-4" strokeWidth={2} />Send
+                            </button>
+                            <button
+                              className="btn btn-outline btn-icon"
+                              title="Copy link instead"
+                              onClick={() => handleCopyLink(n.confirmation_token)}
+                            >
+                              <Link2 className="h-4 w-4" strokeWidth={2} />
+                            </button>
+                          </div>
+                          {n.link_sent_at && (
+                            <span className="text-[11px] text-slate-400">Sent {timeAgo(n.link_sent_at)}</span>
+                          )}
+                        </div>
                       ) : (
                         <span className="text-xs text-slate-400">No email</span>
                       )}
@@ -367,6 +428,12 @@ export default function TrainingDetailPage() {
 
       <TrainingFormModal show={editOpen} training={training} onClose={() => setEditOpen(false)} onSave={handleSaveTraining} />
       <NomineeFormModal show={nomineeModalOpen} onClose={() => setNomineeModalOpen(false)} onSave={handleAddNominee} />
+      <NomineeImportModal
+        show={importModalOpen}
+        trainingId={id}
+        onClose={() => setImportModalOpen(false)}
+        onImported={loadNominees}
+      />
     </>
   );
 }
