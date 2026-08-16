@@ -45,12 +45,15 @@ router.post('/signup', authRateLimiter, asyncHandler(async (req, res) => {
     username: normalizedUsername,
     name: name.trim(),
     passwordHash: hashPassword(password),
+    // The very first account on the whole system becomes admin automatically — the
+    // same moment that already lets it skip the invite code.
+    role: isFirstAccount ? 'admin' : 'staff',
   });
 
   req.session.regenerate((err) => {
     if (err) return res.status(500).json({ error: 'Could not start session' });
     req.session.userId = user._id.toString();
-    res.status(201).json({ id: user._id, username: user.username, name: user.name });
+    res.status(201).json({ id: user._id, username: user.username, name: user.name, role: user.role });
   });
 }));
 
@@ -68,7 +71,7 @@ router.post('/login', authRateLimiter, asyncHandler(async (req, res) => {
   req.session.regenerate((err) => {
     if (err) return res.status(500).json({ error: 'Could not start session' });
     req.session.userId = user._id.toString();
-    res.json({ id: user._id, username: user.username, name: user.name });
+    res.json({ id: user._id, username: user.username, name: user.name, role: user.role });
   });
 }));
 
@@ -83,9 +86,9 @@ router.get('/me', asyncHandler(async (req, res) => {
   if (!req.session || !req.session.userId) {
     return res.status(401).json({ error: 'Not signed in' });
   }
-  const user = await User.findById(req.session.userId).select('username name');
+  const user = await User.findById(req.session.userId).select('username name role');
   if (!user) return res.status(401).json({ error: 'Not signed in' });
-  res.json({ id: user._id, username: user.username, name: user.name });
+  res.json({ id: user._id, username: user.username, name: user.name, role: user.role });
 }));
 
 module.exports = router;

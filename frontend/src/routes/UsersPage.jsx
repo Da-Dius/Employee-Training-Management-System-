@@ -1,16 +1,20 @@
 import { useEffect, useState } from 'react';
-import { UserPlus, Ticket, Clipboard, RefreshCw, Key, Trash2 } from 'lucide-react';
+import { UserPlus, Ticket, Clipboard, RefreshCw, Key, Trash2, ShieldCheck } from 'lucide-react';
 import * as api from '../api/client';
 import { formatDate } from '../utils';
 import { useToast } from '../context/ToastContext';
+import { useAuth } from '../context/AuthContext';
 import Modal from '../components/Modal';
 import Spinner from '../components/Spinner';
 
-const emptyForm = { name: '', username: '', password: '' };
+const emptyForm = { name: '', username: '', password: '', role: 'staff' };
 const emptyResetForm = { password: '', confirm: '' };
 
 export default function UsersPage() {
   const { showToast } = useToast();
+  const { user: currentUser } = useAuth();
+  const isAdmin = currentUser?.role === 'admin';
+
   const [users, setUsers] = useState(null);
   const [error, setError] = useState('');
   const [inviteCode, setInviteCode] = useState('------');
@@ -116,9 +120,11 @@ export default function UsersPage() {
     <>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-semibold text-slate-900">HR Users</h1>
-        <button className="btn btn-primary" onClick={() => setModalOpen(true)}>
-          <UserPlus className="h-4 w-4" strokeWidth={2} />Add HR User
-        </button>
+        {isAdmin && (
+          <button className="btn btn-primary" onClick={() => setModalOpen(true)}>
+            <UserPlus className="h-4 w-4" strokeWidth={2} />Add HR User
+          </button>
+        )}
       </div>
 
       <div className="card mb-4">
@@ -137,9 +143,11 @@ export default function UsersPage() {
             <button className="btn btn-outline btn-sm" onClick={handleCopyInvite}>
               <Clipboard className="h-4 w-4" strokeWidth={2} />Copy
             </button>
-            <button className="btn btn-outline-danger btn-sm" onClick={handleRegenerate}>
-              <RefreshCw className="h-4 w-4" strokeWidth={2} />Regenerate
-            </button>
+            {isAdmin && (
+              <button className="btn btn-outline-danger btn-sm" onClick={handleRegenerate}>
+                <RefreshCw className="h-4 w-4" strokeWidth={2} />Regenerate
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -151,21 +159,22 @@ export default function UsersPage() {
               <tr>
                 <th>Name</th>
                 <th>Username</th>
+                <th>Role</th>
                 <th>Added</th>
-                <th className="text-right">Actions</th>
+                {isAdmin && <th className="text-right">Actions</th>}
               </tr>
             </thead>
             <tbody>
               {error && (
                 <tr>
-                  <td colSpan={4} className="py-8 text-center text-red-600">
+                  <td colSpan={5} className="py-8 text-center text-red-600">
                     {error}
                   </td>
                 </tr>
               )}
               {!error && users === null && (
                 <tr>
-                  <td colSpan={4} className="py-8 text-center">
+                  <td colSpan={5} className="py-8 text-center">
                     <Spinner small />
                   </td>
                 </tr>
@@ -176,25 +185,36 @@ export default function UsersPage() {
                   <tr key={u.id}>
                     <td className="font-medium text-slate-900">{u.name}</td>
                     <td>{u.username}</td>
-                    <td>{formatDate(u.created_at.slice(0, 10))}</td>
-                    <td className="text-right">
-                      <div className="flex justify-end gap-1">
-                        <button
-                          className="btn btn-outline btn-icon"
-                          title="Reset Password"
-                          onClick={() => {
-                            setResetTarget(u);
-                            setResetForm(emptyResetForm);
-                            setResetError('');
-                          }}
-                        >
-                          <Key className="h-4 w-4" strokeWidth={2} />
-                        </button>
-                        <button className="btn btn-outline-danger btn-icon" title="Remove" onClick={() => handleDelete(u.id)}>
-                          <Trash2 className="h-4 w-4" strokeWidth={2} />
-                        </button>
-                      </div>
+                    <td>
+                      {u.role === 'admin' ? (
+                        <span className="badge badge-green inline-flex items-center gap-1">
+                          <ShieldCheck className="h-3 w-3" strokeWidth={2} />Admin
+                        </span>
+                      ) : (
+                        <span className="badge badge-slate">Staff</span>
+                      )}
                     </td>
+                    <td>{formatDate(u.created_at.slice(0, 10))}</td>
+                    {isAdmin && (
+                      <td className="text-right">
+                        <div className="flex justify-end gap-1">
+                          <button
+                            className="btn btn-outline btn-icon"
+                            title="Reset Password"
+                            onClick={() => {
+                              setResetTarget(u);
+                              setResetForm(emptyResetForm);
+                              setResetError('');
+                            }}
+                          >
+                            <Key className="h-4 w-4" strokeWidth={2} />
+                          </button>
+                          <button className="btn btn-outline-danger btn-icon" title="Remove" onClick={() => handleDelete(u.id)}>
+                            <Trash2 className="h-4 w-4" strokeWidth={2} />
+                          </button>
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 ))}
             </tbody>
@@ -249,6 +269,18 @@ export default function UsersPage() {
               onChange={(e) => setForm({ ...form, password: e.target.value })}
             />
             <div className="form-hint">At least 8 characters.</div>
+          </div>
+          <div>
+            <label className="form-label">Role</label>
+            <select
+              className="form-input"
+              value={form.role}
+              onChange={(e) => setForm({ ...form, role: e.target.value })}
+            >
+              <option value="staff">Staff</option>
+              <option value="admin">Admin</option>
+            </select>
+            <div className="form-hint">Admins can add/remove HR users and reset passwords.</div>
           </div>
           {formError && <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{formError}</div>}
         </form>

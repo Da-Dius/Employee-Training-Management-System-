@@ -89,6 +89,11 @@ const userSchema = new Schema({
   username: { type: String, required: true, unique: true },
   name: { type: String, required: true },
   passwordHash: { type: String, required: true },
+  // The very first account ever created becomes 'admin' automatically (same moment
+  // signup already treats specially for skipping the invite code) — see routes/auth.js.
+  // Everyone after that defaults to 'staff' unless an admin explicitly creates them
+  // as 'admin' from the Add HR User form.
+  role: { type: String, enum: ['admin', 'staff'], default: 'staff' },
 }, { timestamps: { createdAt: true, updatedAt: false } });
 
 const notificationSchema = new Schema({
