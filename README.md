@@ -100,7 +100,7 @@ There's no public sign-up for the very first account; create it from the command
 
 ```bash
 cd backend
-node scripts/create-user.js <username> <password> <full name>
+node scripts/create-user.js <username> <password> <full name> [--admin]
 ```
 
 Example:
@@ -108,6 +108,11 @@ Example:
 ```bash
 node scripts/create-user.js maurice "MyStrongPass1" Maurice Admin
 ```
+
+The first account on an empty database is made an **admin** automatically (the same
+rule the signup route follows), since otherwise nobody could manage HR users. Every
+account after that is **staff** unless you pass `--admin`. Both scripts read
+`backend/.env` for `MONGODB_URI`, so set that up first.
 
 Once signed in, additional HR staff accounts can be added two ways:
 
