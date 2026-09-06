@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, ClipboardCheck, Printer, CheckCheck } from 'lucide-react';
 import * as api from '../api/client';
-import { formatDate } from '../utils';
+import { formatDateRange, nominationBadgeClass } from '../utils';
 import { useToast } from '../context/ToastContext';
 import Spinner from '../components/Spinner';
 
@@ -42,11 +42,23 @@ export default function AttendancePage() {
     };
 
     const handleMarkAllAttended = async () => {
-        if (!nominees || nominees.length === 0) return;
-        if (!window.confirm(`Mark all ${nominees.length} nominees as Attended? This overwrites any existing marks.`)) return;
+        if (!nominees) return;
+        // Declined nominees are excluded from attendance entirely (the API rejects them),
+        // and anyone who answered the follow-up email themselves is left alone: overwriting
+        // someone who explicitly said "no, I did not attend" would turn a first-hand answer
+        // into a fabricated attendance record, and that flows straight into the reports.
+        const markable = nominees.filter((n) => n.nomination_status !== 'Declined');
+        const targets = markable.filter((n) => !n.attendance_self_reported);
+        const kept = markable.length - targets.length;
+        if (!targets.length) return;
+        if (!window.confirm(
+            `Mark ${targets.length} nominee(s) as Attended?` +
+            (kept ? ` ${kept} who answered the email themselves will be left as they are.` : '') +
+            ' This overwrites any existing marks.'
+        )) return;
         try {
-            await Promise.all(nominees.map((n) => api.setAttendance(id, n.id, 'Attended')));
-            showToast('All nominees marked Attended');
+            await Promise.all(targets.map((n) => api.setAttendance(id, n.id, 'Attended')));
+            showToast('Nominees marked Attended');
             loadNominees();
         } catch (e) {
             showToast(e.message, 'danger');
@@ -61,7 +73,14 @@ export default function AttendancePage() {
             </div>
         );
 
-    const counts = nominees.reduce(
+    // Declined nominees are hidden here rather than filtered server-side: this page shares
+    // listNominees() with TrainingDetailPage, which must still show them for audit. Only
+    // the declined are hidden — people who never answered, or who have no email on file,
+    // still walk into the room, and the register has to be able to record that.
+    const declinedCount = nominees.filter((n) => n.nomination_status === 'Declined').length;
+    const visible = nominees.filter((n) => n.nomination_status !== 'Declined');
+
+    const counts = visible.reduce(
         (acc, n) => {
             if (n.attendance_status === 'Attended') acc.attended += 1;
             else if (n.attendance_status === 'Did Not Attend') acc.absent += 1;
@@ -90,7 +109,7 @@ export default function AttendancePage() {
                                 <ClipboardCheck className="h-5 w-5" strokeWidth={2} />Attendance Register
                             </h1>
                             <div className="text-sm text-zinc-500">
-                                {training.name} &middot; {formatDate(training.training_date)}
+                                {training.name} &middot; {formatDateRange(training.training_date, training.training_end_date)}
                                 {training.venue ? ` \u00b7 ${training.venue}` : ''}
                             </div>
                         </div>
@@ -108,6 +127,9 @@ export default function AttendancePage() {
                         <span className="badge badge-green">Attended: {counts.attended}</span>
                         <span className="badge badge-red">Did Not Attend: {counts.absent}</span>
                         <span className="badge badge-slate">Pending: {counts.pending}</span>
+                        {declinedCount > 0 && (
+                            <span className="badge badge-amber">{declinedCount} declined (excluded)</span>
+                        )}
                     </div>
                 </div>
             </div>
@@ -121,24 +143,35 @@ export default function AttendancePage() {
                                 <th>Emp No.</th>
                                 <th>Department</th>
                                 <th>Station/Region</th>
+                                <th>Nomination</th>
                                 <th>Attendance</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {nominees.length === 0 && (
+                            {visible.length === 0 && (
                                 <tr>
-                                    <td colSpan={5} className="py-8 text-center text-zinc-400">
+                                    <td colSpan={6} className="py-8 text-center text-zinc-400">
                                         No nominees on this training yet.
                                     </td>
                                 </tr>
                             )}
-                            {nominees.map((n) => (
+                            {visible.map((n) => (
                                 <tr key={n.id}>
                                     <td className="font-medium text-zinc-900">{n.name}</td>
                                     <td>{n.employee_number}</td>
                                     <td>{n.department || '-'}</td>
                                     <td>{n.station_region || '-'}</td>
+                                    <td>
+                                        <span className={nominationBadgeClass(n.nomination_status)}>
+                                            {n.nomination_status}
+                                        </span>
+                                    </td>
                                     <td className="print:hidden">
+                                        {/* These three options are the whole attendance vocabulary and must
+                                            stay in step with ATTENDANCE_STATUSES in backend/routes/nominees.js.
+                                            Do NOT add "Declined" here — that is a nomination status on a
+                                            separate axis; the PATCH would 400, and widening the whitelist to
+                                            "fix" that would corrupt every attendee/absentee report filter. */}
                                         <select
                                             className="form-input min-w-[9rem] py-1.5 text-xs"
                                             value={n.attendance_status}
@@ -148,6 +181,11 @@ export default function AttendancePage() {
                                             <option value="Attended">Attended</option>
                                             <option value="Did Not Attend">Did Not Attend</option>
                                         </select>
+                                        {n.attendance_self_reported && (
+                                            <span className="mt-1 block text-[11px] text-zinc-400">
+                                                self-reported {n.attendance_status === 'Attended' ? 'attended' : 'absent'}
+                                            </span>
+                                        )}
                                     </td>
                                     {/* Printed version shows the plain status text instead of a dropdown */}
                                     <td className="hidden print:table-cell">{n.attendance_status}</td>

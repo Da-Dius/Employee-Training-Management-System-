@@ -31,6 +31,9 @@ const trainingSchema = new Schema({
   name: { type: String, required: true },
   category: { type: String, required: true },
   trainingDate: { type: String, required: true },
+  // Optional end date for multi-day trainings (YYYY-MM-DD, same string-comparison
+  // convention as trainingDate). Absent or blank means a single-day training.
+  trainingEndDate: String,
   venue: String,
   cost: { type: Number, required: true, default: 0 },
   // Kept temporarily alongside serviceEntry below while TrainingsPage/TrainingDetailPage/
@@ -62,10 +65,35 @@ const nomineeSchema = new Schema({
   section: String,
   stationRegion: String,
   email: String,
-  attendanceStatus: { type: String, default: 'Pending' },
-  employeeConfirmed: { type: Boolean, default: false },
+
+  // --- Step 1: the nomination itself. Accepting IS the commitment to attend; it says
+  // nothing about whether they actually turned up (that's attendanceStatus below).
+  nominationStatus: { type: String, enum: ['Pending', 'Accepted', 'Declined'], default: 'Pending' },
+  // There is no updatedAt on this schema (see the options below), so each response
+  // needs its own explicit stamp rather than leaning on a shared one.
+  nominationRespondedAt: Date,
+  declineReason: String,
+
+  // --- Replacement chain. A decliner keeps their row as the audit trail and points
+  // forward; the replacement is a new row pointing back. Both directions are stored so
+  // neither side needs a query to render its label.
+  replacedBy: { type: Schema.Types.ObjectId, ref: 'Nominee' },
+  replacesNominee: { type: Schema.Types.ObjectId, ref: 'Nominee' },
+
+  // --- Step 2: did they actually attend? Only written once the training has ended,
+  // either by HR on the attendance register or by the employee answering the follow-up.
+  // NOTE: this replaced the old `employeeConfirmed` boolean, which conflated "accepted
+  // the nomination" with "attended". Documents created before that split still carry a
+  // physical employeeConfirmed key; Mongoose ignores it and it is never unset, so expect
+  // to see it lingering in Compass.
+  attendanceStatus: { type: String, enum: ['Pending', 'Attended', 'Did Not Attend'], default: 'Pending' },
+  attendanceSelfReported: { type: Boolean, default: false },
+  attendanceRespondedAt: Date,
+  // Distinct from linkSentAt, which stays the nomination email's stamp.
+  attendanceRequestSentAt: Date,
+
   confirmationToken: { type: String, unique: true, sparse: true }, // sparse allows many nulls
-  linkSentAt: Date, // set when the confirmation email is actually sent (not on copy-link)
+  linkSentAt: Date, // set when the nomination email is actually sent (not on copy-link)
 }, { timestamps: { createdAt: true, updatedAt: false } });
 
 const employeeSchema = new Schema({
@@ -126,6 +154,21 @@ const Setting = mongoose.model('Setting', settingSchema);
 
 function genToken() {
   return crypto.randomBytes(16).toString('hex');
+}
+
+// Shared date helpers. The public confirm flow has to agree exactly with
+// trainingStatus() in routes/trainings.js about when a training is over — if the two
+// ever disagree, an employee can be shown the "did you attend?" question for a training
+// the rest of the app still calls Upcoming. Keeping the rule in one place prevents that.
+function nairobiDateString(daysOffset = 0) {
+  const d = new Date(Date.now() + daysOffset * 86400000);
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Nairobi' }).format(d);
+}
+
+// "Ended" is the complement of 'Upcoming': the day OF the training is not yet ended, and
+// a multi-day training isn't over until its last day has passed.
+function hasTrainingEnded(trainingDate, trainingEndDate) {
+  return (trainingEndDate || trainingDate) < nairobiDateString();
 }
 
 async function getSetting(key) {
@@ -200,6 +243,8 @@ module.exports = {
   Notification,
   Setting,
   genToken,
+  nairobiDateString,
+  hasTrainingEnded,
   hashPassword,
   verifyPassword,
   initSessionSecret,

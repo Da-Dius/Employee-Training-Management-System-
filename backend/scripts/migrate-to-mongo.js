@@ -114,7 +114,11 @@ async function main() {
                 stationRegion: row.station_region,
                 email: row.email,
                 attendanceStatus: row.attendance_status,
-                employeeConfirmed: !!row.employee_confirmed,
+                // The old SQLite `employee_confirmed` meant "clicked the confirmation
+                // link", which under the split lifecycle is nomination *acceptance*, not
+                // attendance. Mapped rather than dropped: Mongoose strict mode would
+                // silently discard the retired field name instead of erroring.
+                nominationStatus: row.employee_confirmed ? 'Accepted' : 'Pending',
                 confirmationToken: row.confirmation_token,
                 createdAt: new Date(row.created_at),
             }],

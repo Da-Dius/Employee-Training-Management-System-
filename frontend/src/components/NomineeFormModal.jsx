@@ -13,7 +13,18 @@ const empty = {
   station_region: '',
 };
 
-export default function NomineeFormModal({ show, onClose, onSave }) {
+// Every new prop is defaulted, so the plain "Add Nominee" call site works unchanged and
+// the replacement picker is the same component with different labels.
+export default function NomineeFormModal({
+  show,
+  onClose,
+  onSave,
+  title = 'Add Nominee',
+  submitLabel = 'Add Nominee',
+  savingLabel = 'Adding...',
+  notice = '',
+  excludeEmployeeNumbers = [],
+}) {
   const [form, setForm] = useState(empty);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -95,6 +106,13 @@ export default function NomineeFormModal({ show, onClose, onSave }) {
       return;
     }
 
+    // The greyed-out results below are a convenience; this and the server-side check are
+    // what actually guarantee it.
+    if (excluded.has(form.employee_number)) {
+      setError('That employee is already a nominee on this training.');
+      return;
+    }
+
     setSaving(true);
     setError('');
 
@@ -115,11 +133,16 @@ export default function NomineeFormModal({ show, onClose, onSave }) {
 
   if (!show) return null;
 
+  // Derived at render time, deliberately NOT inside the debounced fetch effect above:
+  // the parent passes a fresh array literal on every render, so putting it anywhere in
+  // that effect's dependencies would spin it into a refetch loop.
+  const excluded = new Set(excludeEmployeeNumbers);
+
   return (
     <Modal
       show={show}
       onClose={onClose}
-      title="Add Nominee"
+      title={title}
       footer={
         <>
           <button
@@ -137,7 +160,7 @@ export default function NomineeFormModal({ show, onClose, onSave }) {
             className="btn btn-primary"
             disabled={saving || !selectedEmployee}
           >
-            {saving ? 'Adding...' : 'Add Nominee'}
+            {saving ? savingLabel : submitLabel}
           </button>
         </>
       }
@@ -147,6 +170,12 @@ export default function NomineeFormModal({ show, onClose, onSave }) {
         onSubmit={handleSubmit}
         className="grid grid-cols-1 gap-4 sm:grid-cols-2"
       >
+        {notice && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 sm:col-span-2">
+            {notice}
+          </div>
+        )}
+
         {/* Employee Search */}
         <div className="relative sm:col-span-2">
           <label className="form-label">
@@ -203,38 +232,53 @@ export default function NomineeFormModal({ show, onClose, onSave }) {
                 </div>
               )}
 
+              {/* Already-nominated people stay visible but unselectable rather than
+                  being filtered out: silently vanishing from a directory search reads
+                  as a broken search, not as an explanation. */}
               {!searchingEmployees &&
-                employees.map((employee) => (
-                  <button
-                    key={employee._id}
-                    type="button"
-                    className="flex w-full items-start gap-3 border-b border-slate-100 px-4 py-3 text-left last:border-b-0 hover:bg-slate-50"
-                    onClick={() => handleEmployeeSelect(employee)}
-                  >
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-600">
-                      <UserRound className="h-4 w-4" strokeWidth={2} />
-                    </span>
-
-                    <span className="min-w-0">
-                      <span className="block truncate text-sm font-medium text-slate-900">
-                        {employee.name}
+                employees.map((employee) => {
+                  const already = excluded.has(employee.employeeNumber);
+                  return (
+                    <button
+                      key={employee._id}
+                      type="button"
+                      disabled={already}
+                      className={`flex w-full items-start gap-3 border-b border-slate-100 px-4 py-3 text-left last:border-b-0 ${
+                        already ? 'cursor-not-allowed opacity-50' : 'hover:bg-slate-50'
+                      }`}
+                      onClick={() => !already && handleEmployeeSelect(employee)}
+                    >
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-600">
+                        <UserRound className="h-4 w-4" strokeWidth={2} />
                       </span>
 
-                      <span className="block text-xs text-slate-500">
-                        {employee.employeeNumber}
-                        {employee.department
-                          ? ` • ${employee.department}`
-                          : ''}
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-medium text-slate-900">
+                          {employee.name}
+                        </span>
+
+                        <span className="block text-xs text-slate-500">
+                          {employee.employeeNumber}
+                          {employee.department
+                            ? ` • ${employee.department}`
+                            : ''}
+                        </span>
+
+                        {employee.email && (
+                          <span className="block truncate text-xs text-slate-400">
+                            {employee.email}
+                          </span>
+                        )}
                       </span>
 
-                      {employee.email && (
-                        <span className="block truncate text-xs text-slate-400">
-                          {employee.email}
+                      {already && (
+                        <span className="ml-auto shrink-0 text-[11px] text-slate-400">
+                          Already a nominee
                         </span>
                       )}
-                    </span>
-                  </button>
-                ))}
+                    </button>
+                  );
+                })}
             </div>
           )}
         </div>

@@ -11,9 +11,12 @@ function asyncHandler(fn) {
   return (req, res, next) => fn(req, res, next).catch(next);
 }
 
-function trainingStatus(dateStr) {
+function trainingStatus(startDate, endDate) {
   const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Nairobi' }).format(new Date());
-  return dateStr >= today ? 'Upcoming' : 'Completed';
+  // A multi-day training isn't done until its last day passes. With no end date the
+  // effective end is the start date, which is the previous single-date behaviour exactly.
+  const effectiveEnd = endDate || startDate;
+  return effectiveEnd >= today ? 'Upcoming' : 'Completed';
 }
 
 // Same multer setup as routes/evidence.js — same disk destination, same allowed types,
@@ -63,6 +66,9 @@ function serializeTraining(doc) {
     name: doc.name,
     category: doc.category,
     training_date: doc.trainingDate,
+    // null (not undefined) so the wire shape is identical for old records that never
+    // had the field and new ones that were saved with it blank.
+    training_end_date: doc.trainingEndDate || null,
     venue: doc.venue,
     cost: doc.cost,
     paid: !!doc.paid, // TODO: remove once TrainingsPage/TrainingDetailPage/ReportsPage are migrated to service_entry
@@ -72,7 +78,7 @@ function serializeTraining(doc) {
     lpo_number: doc.lpoNumber,
     lpo_attachment_name: doc.lpoAttachmentOriginalName || null,
     service_entry: doc.serviceEntry || 'Not Paid',
-    status: trainingStatus(doc.trainingDate),
+    status: trainingStatus(doc.trainingDate, doc.trainingEndDate),
     created_at: doc.createdAt,
     updated_at: doc.updatedAt,
   };
@@ -112,12 +118,16 @@ router.get('/:id', asyncHandler(async (req, res) => {
 // just leaves req.file undefined and all the text fields land in req.body as before)
 router.post('/', upload.single('lpo_attachment'), asyncHandler(async (req, res) => {
   const {
-    name, category, training_date, venue, cost, paid, per_diem, description,
+    name, category, training_date, training_end_date, venue, cost, paid, per_diem, description,
     trainer_name, lpo_number, service_entry,
   } = req.body;
 
   if (!name || !category || !training_date) {
     return res.status(400).json({ error: 'name, category and training_date are required' });
+  }
+
+  if (training_end_date && training_end_date < training_date) {
+    return res.status(400).json({ error: 'End date must be on or after the training date' });
   }
 
   // paid is derived from serviceEntry now that the form no longer has its own
@@ -128,6 +138,9 @@ router.post('/', upload.single('lpo_attachment'), asyncHandler(async (req, res) 
     name,
     category,
     trainingDate: training_date,
+    // `|| undefined` (same idiom as venue below): multipart sends an untouched date
+    // input as '', and storing that would defeat every `endDate || startDate` fallback.
+    trainingEndDate: training_end_date || undefined,
     venue: venue || undefined,
     cost: Number(cost) || 0,
     paid: resolvedServiceEntry === 'Paid',
@@ -151,15 +164,32 @@ router.put('/:id', upload.single('lpo_attachment'), asyncHandler(async (req, res
   if (!existing) return res.status(404).json({ error: 'Training not found' });
 
   const {
-    name, category, training_date, venue, cost, paid, per_diem, description,
+    name, category, training_date, training_end_date, venue, cost, paid, per_diem, description,
     trainer_name, lpo_number, service_entry,
   } = req.body;
 
+  // Validate the document as it *will* be, not just what was submitted — otherwise an
+  // edit that moves only the start date past an already-stored end date slips through.
+  const nextStart = training_date ?? existing.trainingDate;
+  const nextEnd = training_end_date !== undefined ? training_end_date : existing.trainingEndDate;
+  if (nextEnd && nextEnd < nextStart) {
+    return res.status(400).json({ error: 'End date must be on or after the training date' });
+  }
+
+  // Start date only, on purpose: the 'training_starting' notification is generated from
+  // trainingDate alone and its message says "starts today/tomorrow", so an end-date edit
+  // doesn't make it stale — and regenerating would resurrect an already-read notification.
   const dateChanged = training_date !== undefined && training_date !== existing.trainingDate;
 
   existing.name = name ?? existing.name;
   existing.category = category ?? existing.category;
   existing.trainingDate = training_date ?? existing.trainingDate;
+  // Not the `??` idiom used by its neighbours: this field is optional and must stay
+  // clearable, so a blank submitted value has to unset it rather than fall through to
+  // the old value. Assigning undefined makes Mongoose $unset the path on save.
+  if (training_end_date !== undefined) {
+    existing.trainingEndDate = training_end_date || undefined;
+  }
   existing.venue = venue ?? existing.venue;
   existing.cost = cost !== undefined ? Number(cost) : existing.cost;
   existing.paid = paid !== undefined ? !!paid : existing.paid;
@@ -220,9 +250,15 @@ router.delete('/:id', asyncHandler(async (req, res) => {
   }
 
   await Training.deleteOne({ _id: existing._id });
+  // Collected before the delete: decline notifications are keyed on the NOMINEE id, so
+  // once the rows are gone there is no way to find the notifications that point at them,
+  // and they'd linger in the bell linking to a training that no longer exists.
+  const nomineeIds = (await Nominee.find({ training: existing._id }).select('_id')).map((n) => n._id);
+
   await Nominee.deleteMany({ training: existing._id });
   await Evidence.deleteMany({ training: existing._id });
   await Notification.deleteOne({ type: 'training_starting', refId: existing._id });
+  await Notification.deleteMany({ type: 'nominee_declined', refId: { $in: nomineeIds } });
 
   evidenceFiles.forEach((row) => {
     fs.unlink(path.join(uploadsDir, row.filename), () => { });

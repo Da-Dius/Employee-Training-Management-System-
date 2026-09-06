@@ -17,7 +17,7 @@ import {
   Users2,
 } from 'lucide-react';
 import * as api from '../api/client';
-import { CATEGORIES, formatDate } from '../utils';
+import { CATEGORIES, attendanceBadgeClass, formatDateRange, nominationBadgeClass } from '../utils';
 import Spinner from '../components/Spinner';
 import Modal from '../components/Modal';
 
@@ -179,12 +179,6 @@ function formatKES(amount) {
 function attendanceRate(row) {
   if (!row.nominee_count) return null;
   return Math.round((row.attendee_count / row.nominee_count) * 100);
-}
-
-function attendanceStatusBadge(status) {
-  if (status === 'Attended') return 'badge badge-green';
-  if (status === 'Did Not Attend') return 'badge badge-red';
-  return 'badge badge-slate';
 }
 
 const emptyFilters = { month: currentMonth(), category: '', department: '', name: '' };
@@ -358,8 +352,8 @@ function TrainingDetailModal({ trainingId, onClose }) {
               <div className="font-medium text-slate-900">{training.category}</div>
             </div>
             <div>
-              <div className="text-xs text-slate-500">Training Date</div>
-              <div className="font-medium text-slate-900">{formatDate(training.training_date)}</div>
+              <div className="text-xs text-slate-500">Training Dates</div>
+              <div className="font-medium text-slate-900">{formatDateRange(training.training_date, training.training_end_date)}</div>
             </div>
             <div>
               <div className="text-xs text-slate-500">Venue</div>
@@ -401,13 +395,14 @@ function TrainingDetailModal({ trainingId, onClose }) {
                     <th>Division</th>
                     <th>Section</th>
                     <th>Station/Region</th>
+                    <th>Nomination</th>
                     <th>Attendance</th>
                   </tr>
                 </thead>
                 <tbody>
                   {nominees && nominees.length === 0 && (
                     <tr>
-                      <td colSpan={7} className="py-4 text-center text-slate-400">
+                      <td colSpan={8} className="py-4 text-center text-slate-400">
                         No nominees for this training.
                       </td>
                     </tr>
@@ -421,8 +416,15 @@ function TrainingDetailModal({ trainingId, onClose }) {
                         <td>{n.division || '-'}</td>
                         <td>{n.section || '-'}</td>
                         <td>{n.station_region || '-'}</td>
+                        {/* Without this a declined nominee reads as an unexplained
+                            "Pending" attendance to whoever drills in from the report. */}
                         <td>
-                          <span className={attendanceStatusBadge(n.attendance_status)}>
+                          <span className={nominationBadgeClass(n.nomination_status)}>
+                            {n.nomination_status || 'Pending'}
+                          </span>
+                        </td>
+                        <td>
+                          <span className={attendanceBadgeClass(n.attendance_status)}>
                             {n.attendance_status || 'Pending'}
                           </span>
                         </td>
@@ -496,11 +498,12 @@ export default function ReportsPage() {
           nominees: acc.nominees + r.nominee_count,
           attendees: acc.attendees + r.attendee_count,
           absentees: acc.absentees + r.absentee_count,
+          declined: acc.declined + r.declined_count,
           cost: acc.cost + (Number(r.cost) || 0),
         }),
-        { nominees: 0, attendees: 0, absentees: 0, cost: 0 }
+        { nominees: 0, attendees: 0, absentees: 0, declined: 0, cost: 0 }
       )
-      : { nominees: 0, attendees: 0, absentees: 0, cost: 0 };
+      : { nominees: 0, attendees: 0, absentees: 0, declined: 0, cost: 0 };
 
   const overallRate = totals.nominees > 0 ? (totals.attendees / totals.nominees) * 100 : 0;
 
@@ -749,6 +752,7 @@ export default function ReportsPage() {
                 <th className="text-center">Nominees</th>
                 <th className="text-center">Attendees</th>
                 <th className="text-center">Absentees</th>
+                <th className="text-center">Declined</th>
                 <th className="text-center">Attendance Rate</th>
                 <th>Cost</th>
                 <th>Paid/Free</th>
@@ -759,14 +763,14 @@ export default function ReportsPage() {
             <tbody>
               {error && (
                 <tr>
-                  <td colSpan={12} className="py-8 text-center text-red-600">
+                  <td colSpan={13} className="py-8 text-center text-red-600">
                     {error}
                   </td>
                 </tr>
               )}
               {!error && rows === null && (
                 <tr>
-                  <td colSpan={12} className="py-8 text-center">
+                  <td colSpan={13} className="py-8 text-center">
                     <Spinner small />
                   </td>
                 </tr>
@@ -779,11 +783,12 @@ export default function ReportsPage() {
                     <tr key={r.id}>
                       <td className="font-medium text-slate-900">{r.name}</td>
                       <td>{r.category}</td>
-                      <td>{formatDate(r.training_date)}</td>
+                      <td className="whitespace-nowrap">{formatDateRange(r.training_date, r.training_end_date)}</td>
                       <td>{r.venue || '-'}</td>
                       <td className="text-center">{r.nominee_count}</td>
                       <td className="text-center font-medium text-emerald-600">{r.attendee_count}</td>
                       <td className="text-center font-medium text-red-600">{r.absentee_count}</td>
+                      <td className="text-center text-slate-500">{r.declined_count}</td>
                       <td className="text-center">
                         {rate === null ? (
                           '-'
@@ -816,6 +821,7 @@ export default function ReportsPage() {
                   <td className="text-center">{totals.nominees}</td>
                   <td className="text-center text-emerald-700">{totals.attendees}</td>
                   <td className="text-center text-red-700">{totals.absentees}</td>
+                  <td className="text-center text-slate-600">{totals.declined}</td>
                   <td className="text-center">{overallRate.toFixed(1)}%</td>
                   <td className="whitespace-nowrap">{formatKES(totals.cost)}</td>
                   <td colSpan={3}></td>

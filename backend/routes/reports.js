@@ -40,13 +40,36 @@ async function buildMonthlyReport({ month, category, department, name } = {}) {
   pipeline.push(
     {
       $addFields: {
-        nominee_count: { $size: '$nominees' },
+        // Declined nominees keep their row for audit but are excluded from every count
+        // and from the attendance-rate denominator. The exclusion has to be applied to
+        // attendee_count and absentee_count too, not just nominee_count: these are three
+        // independent filters rather than complements, so excluding only the denominator
+        // would let absentee_count exceed nominee_count and drive the Pending segment of
+        // the activity chart negative.
+        //
+        // `$ne` and not `$in`: nominees created before nominationStatus existed have no
+        // such key, and an aggregation reads raw BSON rather than applying the schema
+        // default. $ne matches a missing path; $in would zero out every legacy record.
+        nominee_count: {
+          $size: {
+            $filter: {
+              input: '$nominees',
+              as: 'n',
+              cond: { $ne: ['$$n.nominationStatus', 'Declined'] },
+            },
+          },
+        },
         attendee_count: {
           $size: {
             $filter: {
               input: '$nominees',
               as: 'n',
-              cond: { $eq: ['$$n.attendanceStatus', 'Attended'] },
+              cond: {
+                $and: [
+                  { $ne: ['$$n.nominationStatus', 'Declined'] },
+                  { $eq: ['$$n.attendanceStatus', 'Attended'] },
+                ],
+              },
             },
           },
         },
@@ -55,7 +78,21 @@ async function buildMonthlyReport({ month, category, department, name } = {}) {
             $filter: {
               input: '$nominees',
               as: 'n',
-              cond: { $eq: ['$$n.attendanceStatus', 'Did Not Attend'] },
+              cond: {
+                $and: [
+                  { $ne: ['$$n.nominationStatus', 'Declined'] },
+                  { $eq: ['$$n.attendanceStatus', 'Did Not Attend'] },
+                ],
+              },
+            },
+          },
+        },
+        declined_count: {
+          $size: {
+            $filter: {
+              input: '$nominees',
+              as: 'n',
+              cond: { $eq: ['$$n.nominationStatus', 'Declined'] },
             },
           },
         },
@@ -71,10 +108,12 @@ async function buildMonthlyReport({ month, category, department, name } = {}) {
     name: r.name,
     category: r.category,
     training_date: r.trainingDate,
+    training_end_date: r.trainingEndDate || null,
     venue: r.venue,
     nominee_count: r.nominee_count,
     attendee_count: r.attendee_count,
     absentee_count: r.absentee_count,
+    declined_count: r.declined_count,
     cost: r.cost,
     paid: !!r.paid,
     per_diem: !!r.perDiem,
@@ -114,6 +153,7 @@ async function buildAttendeeReport({ month, category, department, name } = {}) {
   return rows.map((r) => ({
     training_name: r.name,
     training_date: r.trainingDate,
+    training_end_date: r.trainingEndDate || null,
     category: r.category,
     employee_name: r.nominees.name,
     employee_number: r.nominees.employeeNumber,
@@ -121,8 +161,13 @@ async function buildAttendeeReport({ month, category, department, name } = {}) {
     division: r.nominees.division,
     section: r.nominees.section,
     station_region: r.nominees.stationRegion,
+    // Declined rows are deliberately NOT filtered out of this report — it's the
+    // per-person audit list, and the nomination_status column is what tells the reader
+    // they don't count toward the totals in the monthly report.
+    nomination_status: r.nominees.nominationStatus || 'Pending',
+    decline_reason: r.nominees.declineReason || null,
     attendance_status: r.nominees.attendanceStatus,
-    employee_confirmed: !!r.nominees.employeeConfirmed,
+    attendance_self_reported: !!r.nominees.attendanceSelfReported,
   }));
 }
 
@@ -150,9 +195,29 @@ async function buildDepartmentStats({ month, category, name } = {}) {
     {
       $group: {
         _id: { $ifNull: ['$nominees.department', 'Unspecified'] },
-        nominee_count: { $sum: 1 },
+        // Same Declined exclusion as buildMonthlyReport, for the same reason. This does
+        // shift what the no-show rate means — from "nominated and didn't show" to
+        // "committed (or stayed silent) and didn't show" — which is the more useful
+        // number, and needs no frontend change.
+        nominee_count: {
+          $sum: { $cond: [{ $ne: ['$nominees.nominationStatus', 'Declined'] }, 1, 0] },
+        },
         attendee_count: {
-          $sum: { $cond: [{ $eq: ['$nominees.attendanceStatus', 'Attended'] }, 1, 0] },
+          $sum: {
+            $cond: [
+              {
+                $and: [
+                  { $ne: ['$nominees.nominationStatus', 'Declined'] },
+                  { $eq: ['$nominees.attendanceStatus', 'Attended'] },
+                ],
+              },
+              1,
+              0,
+            ],
+          },
+        },
+        declined_count: {
+          $sum: { $cond: [{ $eq: ['$nominees.nominationStatus', 'Declined'] }, 1, 0] },
         },
       },
     },
@@ -163,6 +228,7 @@ async function buildDepartmentStats({ month, category, name } = {}) {
     department: r._id,
     nominee_count: r.nominee_count,
     attendee_count: r.attendee_count,
+    declined_count: r.declined_count,
   }));
 }
 
@@ -189,10 +255,12 @@ router.get('/monthly/export', asyncHandler(async (req, res) => {
     { header: 'Training Name', key: 'name', width: 30 },
     { header: 'Category', key: 'category', width: 16 },
     { header: 'Training Date', key: 'training_date', width: 15 },
+    { header: 'End Date', key: 'training_end_date', width: 15 },
     { header: 'Venue', key: 'venue', width: 20 },
     { header: 'Nominees', key: 'nominee_count', width: 10 },
     { header: 'Attendees', key: 'attendee_count', width: 10 },
     { header: 'Absentees', key: 'absentee_count', width: 10 },
+    { header: 'Declined', key: 'declined_count', width: 10 },
     { header: 'Attendance Rate', key: 'attendance_rate', width: 14 },
     { header: 'Cost of Training', key: 'cost', width: 15 },
     { header: 'Paid or Free', key: 'paid_label', width: 12 },
@@ -205,10 +273,13 @@ router.get('/monthly/export', asyncHandler(async (req, res) => {
       name: r.name,
       category: r.category,
       training_date: r.training_date,
+      // '' rather than null so ExcelJS writes a genuinely empty cell for single-day rows.
+      training_end_date: r.training_end_date || '',
       venue: r.venue,
       nominee_count: r.nominee_count,
       attendee_count: r.attendee_count,
       absentee_count: r.absentee_count,
+      declined_count: r.declined_count,
       attendance_rate: r.nominee_count > 0 ? `${Math.round((r.attendee_count / r.nominee_count) * 100)}%` : '-',
       cost: r.cost,
       paid_label: r.paid ? 'Paid' : 'Free',
@@ -237,6 +308,7 @@ router.get('/monthly/attendees/export', asyncHandler(async (req, res) => {
   sheet.columns = [
     { header: 'Training Name', key: 'training_name', width: 30 },
     { header: 'Training Date', key: 'training_date', width: 15 },
+    { header: 'End Date', key: 'training_end_date', width: 15 },
     { header: 'Category', key: 'category', width: 16 },
     { header: 'Employee Name', key: 'employee_name', width: 24 },
     { header: 'Employee Number', key: 'employee_number', width: 16 },
@@ -244,8 +316,10 @@ router.get('/monthly/attendees/export', asyncHandler(async (req, res) => {
     { header: 'Division', key: 'division', width: 18 },
     { header: 'Section', key: 'section', width: 16 },
     { header: 'Station/Region', key: 'station_region', width: 16 },
+    { header: 'Nomination Status', key: 'nomination_status', width: 16 },
+    { header: 'Decline Reason', key: 'decline_reason', width: 28 },
     { header: 'Attendance Status', key: 'attendance_status', width: 16 },
-    { header: 'Self-Confirmed', key: 'confirmed_label', width: 14 },
+    { header: 'Attendance Self-Reported', key: 'self_reported_label', width: 20 },
   ];
   sheet.getRow(1).font = { bold: true };
 
@@ -253,6 +327,7 @@ router.get('/monthly/attendees/export', asyncHandler(async (req, res) => {
     sheet.addRow({
       training_name: r.training_name,
       training_date: r.training_date,
+      training_end_date: r.training_end_date || '',
       category: r.category,
       employee_name: r.employee_name,
       employee_number: r.employee_number,
@@ -260,8 +335,10 @@ router.get('/monthly/attendees/export', asyncHandler(async (req, res) => {
       division: r.division,
       section: r.section,
       station_region: r.station_region,
+      nomination_status: r.nomination_status,
+      decline_reason: r.decline_reason || '',
       attendance_status: r.attendance_status,
-      confirmed_label: r.employee_confirmed ? 'Yes' : 'No',
+      self_reported_label: r.attendance_self_reported ? 'Yes' : 'No',
     });
   });
 

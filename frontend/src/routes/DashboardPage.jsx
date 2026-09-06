@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   Users,
   UserCheck,
+  UserX,
   Plus,
   MapPin,
   ArrowRight,
@@ -59,6 +60,13 @@ const CARD_CONFIG = [
     Icon: UserCheck,
     color: RED,
     accentBg: 'bg-red-50',
+  },
+  {
+    key: 'totalDeclined',
+    label: 'Declined',
+    Icon: UserX,
+    color: BLACK,
+    accentBg: 'bg-zinc-100',
   },
 ];
 
@@ -255,7 +263,8 @@ export default function DashboardPage() {
         </Link>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
+      {/* Six cards, so six columns — a 6th in a 5-col grid wraps to a row of one. */}
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-6">
         {!stats
           ? CARD_CONFIG.map(({ key }) => <KpiSkeleton key={key} />)
           : CARD_CONFIG.map(({ key, label, Icon, color, accentBg, to }, i) => {
