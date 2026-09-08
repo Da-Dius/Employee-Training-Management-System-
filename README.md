@@ -43,6 +43,21 @@ It's served by the backend directly, at the same path in both dev and production
 
 ## Running it
 
+### Environment variables (do this first)
+
+The backend reads its config from `backend/.env`, which is gitignored — so a fresh
+clone has no `.env` and the server exits immediately with
+`MONGODB_URI is not set`. Create it from the template:
+
+```bash
+cd backend
+cp .env.example .env
+```
+
+Then open `backend/.env` and set `MONGODB_URI` to your MongoDB connection string
+(Atlas: `mongodb+srv://<user>:<password>@<cluster>/<dbname>`). Everything else in
+that file is optional; see the comments there for what each variable does.
+
 ### Development (two terminals)
 
 ```bash
@@ -85,7 +100,7 @@ There's no public sign-up for the very first account; create it from the command
 
 ```bash
 cd backend
-node scripts/create-user.js <username> <password> <full name>
+node scripts/create-user.js <username> <password> <full name> [--admin]
 ```
 
 Example:
@@ -93,6 +108,11 @@ Example:
 ```bash
 node scripts/create-user.js maurice "MyStrongPass1" Maurice Admin
 ```
+
+The first account on an empty database is made an **admin** automatically (the same
+rule the signup route follows), since otherwise nobody could manage HR users. Every
+account after that is **staff** unless you pass `--admin`. Both scripts read
+`backend/.env` for `MONGODB_URI`, so set that up first.
 
 Once signed in, additional HR staff accounts can be added two ways:
 
@@ -142,9 +162,16 @@ the self-confirmation note below). Instead:
   cost, paid/free, per diem, description).
 - **Nominees** — add multiple nominees per training with department/division/section/
   station details.
-- **Attendance** — mark each nominee Attended / Did Not Attend / Pending. Each nominee
-  with a work email gets a shareable self-confirmation link (`confirm.html?token=...`)
-  they can use to confirm their own attendance.
+- **Nomination responses** — each nominee with a work email gets a link
+  (`confirm.html?token=...`) where they **accept or decline** the nomination.
+  Accepting is their commitment to attend; declining notifies HR and can optionally
+  record a reason.
+- **Replacements** — when someone declines, HR adds a replacement from the employee
+  directory. The decliner stays on the list marked Declined (the record of who
+  dropped out) and the replacement is linked back to them.
+- **Attendance** — once the training has ended, HR clicks **Ask Who Attended** to email
+  everyone who accepted, asking whether they actually turned up. HR can also mark each
+  nominee Attended / Did Not Attend / Pending directly on the register.
 - **Evidence Upload** — attach attendance registers, photos, reports, etc. per training
   (images, PDF, Word, Excel, PowerPoint, CSV, or plain text; up to 25MB per file).
 - **Reports** — monthly report (nominees/attendees/absentees/cost/paid/per diem per
@@ -153,11 +180,15 @@ the self-confirmation note below). Instead:
 
 ## Notes
 
-- The employee self-confirmation flow verifies the submitted work email against the
-  email on file for that nominee; it does not send email itself. Share the generated
-  link (via the "Copy Link" button on a training's nominee row) through your existing
-  email system. This link intentionally stays public/unauthenticated so employees
-  don't need an HR login to confirm their own attendance.
+- The public response flow verifies the submitted work email against the email on file
+  for that nominee. One token covers both questions: before the training it asks accept
+  or decline, after it has ended it asks whether they attended. The link intentionally
+  stays public/unauthenticated so employees don't need an HR login, and it can be shared
+  manually via the "Copy Link" button instead of emailed.
+- Declined nominees are excluded from nominee totals, attendee counts and the
+  attendance-rate denominator — a decline is a withdrawal, not a no-show, so replacing
+  someone does not drag the rate down. They still appear in the per-person attendee
+  report, where a Nomination Status column explains why they do not count.
 - `node:sqlite` is an experimental Node API; you'll see an `ExperimentalWarning` on
   startup, which is expected and harmless.
 - Sessions are stored in a `sessions` table in the same SQLite database (see

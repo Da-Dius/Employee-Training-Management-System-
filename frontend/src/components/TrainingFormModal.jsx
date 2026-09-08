@@ -8,7 +8,6 @@ const emptyForm = {
   name: '',
   category: CATEGORIES[0],
   training_date: '',
-  end_date: '',
   venue: '',
   cost: 0,
   per_diem: false,
@@ -24,7 +23,6 @@ function toFormState(training) {
     name: training.name,
     category: training.category,
     training_date: training.training_date,
-    end_date: training.end_date || '',
     venue: training.venue || '',
     cost: training.cost,
     per_diem: training.per_diem,
@@ -67,7 +65,6 @@ export default function TrainingFormModal({ show, onClose, onSave, training }) {
       fd.append('name', form.name);
       fd.append('category', form.category);
       fd.append('training_date', form.training_date);
-      if (form.end_date) fd.append('end_date', form.end_date);
       fd.append('venue', form.venue);
       fd.append('cost', String(parseFloat(form.cost) || 0));
       // Only send per_diem when true — an absent field reads as false on the backend,
@@ -104,7 +101,7 @@ export default function TrainingFormModal({ show, onClose, onSave, training }) {
         </>
       }
     >
-      <form id="trainingForm" onSubmit={handleSubmit} className="grid grid-cols-1 gap-3 sm:grid-cols-12">
+      <form id="trainingForm" onSubmit={handleSubmit} className="grid grid-cols-1 gap-4 sm:grid-cols-12">
         <div className="sm:col-span-8">
           <label className="form-label">Training Name *</label>
           <input
@@ -130,26 +127,25 @@ export default function TrainingFormModal({ show, onClose, onSave, training }) {
           </select>
         </div>
 
-        <div className="sm:col-span-3">
+        <div className="sm:col-span-6">
           <label className="form-label">Training Date *</label>
           <input
             type="date"
             className="form-input"
             required
             value={form.training_date}
-            onChange={(e) => setForm({ ...form, training_date: e.target.value })}
+            onChange={(e) => {
+              const start = e.target.value;
+              // Moving the start past an already-picked end would leave the end input
+              // holding a silently invalid value, so clear it and make the user re-pick.
+              setForm((f) => ({
+                ...f,
+                training_date: start,
+                training_end_date:
+                  f.training_end_date && start && f.training_end_date < start ? '' : f.training_end_date,
+              }));
+            }}
           />
-        </div>
-        <div className="sm:col-span-3">
-          <label className="form-label">End Date</label>
-          <input
-            type="date"
-            className="form-input"
-            min={form.training_date || undefined}
-            value={form.end_date}
-            onChange={(e) => setForm({ ...form, end_date: e.target.value })}
-          />
-          <div className="form-hint">Multi-day trainings only.</div>
         </div>
         <div className="sm:col-span-6">
           <label className="form-label">Name of Trainer</label>
@@ -161,7 +157,7 @@ export default function TrainingFormModal({ show, onClose, onSave, training }) {
           />
         </div>
 
-        <div className="sm:col-span-12">
+        <div className="sm:col-span-6">
           <label className="form-label">Venue</label>
           <input
             type="text"
@@ -170,8 +166,7 @@ export default function TrainingFormModal({ show, onClose, onSave, training }) {
             onChange={(e) => setForm({ ...form, venue: e.target.value })}
           />
         </div>
-
-        <div className="sm:col-span-4">
+        <div className="sm:col-span-3">
           <label className="form-label">Cost of Training</label>
           <input
             type="number"
@@ -182,7 +177,7 @@ export default function TrainingFormModal({ show, onClose, onSave, training }) {
             onChange={(e) => setForm({ ...form, cost: e.target.value })}
           />
         </div>
-        <div className="sm:col-span-4">
+        <div className="sm:col-span-3">
           <label className="form-label">Service Entry</label>
           <select
             className="form-input"
@@ -192,33 +187,19 @@ export default function TrainingFormModal({ show, onClose, onSave, training }) {
             <option value="Not Paid">Not Paid</option>
             <option value="Paid">Paid</option>
           </select>
-          <div className="form-hint">Whether payment for this training has been processed.</div>
-        </div>
-        <div className="flex items-end pb-2 sm:col-span-4">
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              className="form-switch"
-              checked={form.per_diem}
-              onChange={(e) => setForm({ ...form, per_diem: e.target.checked })}
-            />
-            <span className="text-sm font-medium text-zinc-700">
-              {form.per_diem ? 'Per Diem' : 'Not Per Diem'}
-            </span>
-          </label>
         </div>
 
-        <div className="sm:col-span-6">
+        <div className="sm:col-span-4">
           <label className="form-label">LPO Number</label>
           <input
             type="text"
             className="form-input"
-            placeholder="Local Purchase Order number"
+            placeholder="Purchase order no."
             value={form.lpo_number}
             onChange={(e) => setForm({ ...form, lpo_number: e.target.value })}
           />
         </div>
-        <div className="sm:col-span-6">
+        <div className="sm:col-span-5">
           <label className="form-label">LPO Attachment</label>
           <input
             ref={fileInputRef}
@@ -237,16 +218,29 @@ export default function TrainingFormModal({ show, onClose, onSave, training }) {
               <Download className="h-3 w-3" strokeWidth={2} />
             </a>
           )}
-          <div className="form-hint">
-            {training?.lpo_attachment_name ? 'Choosing a new file replaces the current one.' : 'Receipt, invoice, or proof of purchase.'}
-          </div>
+          {training?.lpo_attachment_name && (
+            <div className="form-hint">Choosing a new file replaces the current one.</div>
+          )}
+        </div>
+        <div className="flex items-end pb-2 sm:col-span-3">
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              className="form-switch"
+              checked={form.per_diem}
+              onChange={(e) => setForm({ ...form, per_diem: e.target.checked })}
+            />
+            <span className="text-sm font-medium text-zinc-700">
+              {form.per_diem ? 'Per Diem' : 'Not Per Diem'}
+            </span>
+          </label>
         </div>
 
         <div className="sm:col-span-12">
           <label className="form-label">Description (Optional)</label>
           <textarea
             className="form-input"
-            rows="3"
+            rows="2"
             value={form.description}
             onChange={(e) => setForm({ ...form, description: e.target.value })}
           ></textarea>

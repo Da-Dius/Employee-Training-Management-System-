@@ -73,6 +73,19 @@ export const setAttendance = (trainingId, nomineeId, attendance_status) =>
   });
 export const deleteNominee = (trainingId, nomineeId) =>
   request(`${BASE}/trainings/${trainingId}/nominees/${nomineeId}`, { method: 'DELETE' });
+// Adds a replacement for a nominee who declined. The decliner is not deleted — they stay
+// on the list as the record of who dropped out.
+export const replaceNominee = (trainingId, nomineeId, data) =>
+  request(`${BASE}/trainings/${trainingId}/nominees/${nomineeId}/replace`, {
+    method: 'POST',
+    ...jsonBody(data),
+  });
+// One bulk call rather than a fan-out: each recipient is an SMTP send, and the response
+// reports per-recipient { sent, skipped } so nothing fails silently.
+export const requestAttendanceConfirmations = (trainingId) =>
+  request(`${BASE}/trainings/${trainingId}/nominees/request-attendance-confirmation`, {
+    method: 'POST',
+  });
 
 export const importNominees = async (trainingId, file) => {
   const form = new FormData();
