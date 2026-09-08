@@ -8,6 +8,7 @@ const emptyForm = {
   name: '',
   category: CATEGORIES[0],
   training_date: '',
+  end_date: '',
   venue: '',
   cost: 0,
   per_diem: false,
@@ -23,6 +24,7 @@ function toFormState(training) {
     name: training.name,
     category: training.category,
     training_date: training.training_date,
+    end_date: training.end_date || '',
     venue: training.venue || '',
     cost: training.cost,
     per_diem: training.per_diem,
@@ -53,6 +55,11 @@ export default function TrainingFormModal({ show, onClose, onSave, training }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (form.end_date && form.end_date < form.training_date) {
+      setError('End date cannot be before the training date.');
+      return;
+    }
+
     setSaving(true);
     setError('');
     try {
@@ -60,6 +67,7 @@ export default function TrainingFormModal({ show, onClose, onSave, training }) {
       fd.append('name', form.name);
       fd.append('category', form.category);
       fd.append('training_date', form.training_date);
+      if (form.end_date) fd.append('end_date', form.end_date);
       fd.append('venue', form.venue);
       fd.append('cost', String(parseFloat(form.cost) || 0));
       // Only send per_diem when true — an absent field reads as false on the backend,
@@ -96,7 +104,7 @@ export default function TrainingFormModal({ show, onClose, onSave, training }) {
         </>
       }
     >
-      <form id="trainingForm" onSubmit={handleSubmit} className="grid grid-cols-1 gap-4 sm:grid-cols-12">
+      <form id="trainingForm" onSubmit={handleSubmit} className="grid grid-cols-1 gap-3 sm:grid-cols-12">
         <div className="sm:col-span-8">
           <label className="form-label">Training Name *</label>
           <input
@@ -122,7 +130,7 @@ export default function TrainingFormModal({ show, onClose, onSave, training }) {
           </select>
         </div>
 
-        <div className="sm:col-span-6">
+        <div className="sm:col-span-3">
           <label className="form-label">Training Date *</label>
           <input
             type="date"
@@ -131,6 +139,17 @@ export default function TrainingFormModal({ show, onClose, onSave, training }) {
             value={form.training_date}
             onChange={(e) => setForm({ ...form, training_date: e.target.value })}
           />
+        </div>
+        <div className="sm:col-span-3">
+          <label className="form-label">End Date</label>
+          <input
+            type="date"
+            className="form-input"
+            min={form.training_date || undefined}
+            value={form.end_date}
+            onChange={(e) => setForm({ ...form, end_date: e.target.value })}
+          />
+          <div className="form-hint">Multi-day trainings only.</div>
         </div>
         <div className="sm:col-span-6">
           <label className="form-label">Name of Trainer</label>

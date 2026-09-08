@@ -18,6 +18,11 @@ import {
 } from 'lucide-react';
 import * as api from '../api/client';
 import { CATEGORIES, formatDate } from '../utils';
+
+function formatDateRange(start, end) {
+  if (!end || end === start) return formatDate(start);
+  return `${formatDate(start)} \u2013 ${formatDate(end)}`;
+}
 import Spinner from '../components/Spinner';
 import Modal from '../components/Modal';
 
@@ -164,8 +169,6 @@ function DepartmentParticipation({ stats }) {
     </div>
   );
 }
-
-
 
 function currentMonth() {
   return new Date().toISOString().slice(0, 7);
@@ -581,67 +584,72 @@ export default function ReportsPage() {
 
       {/* Filters + Export */}
       <div className="card mb-4">
-        <div className="card-body grid grid-cols-1 gap-3 sm:grid-cols-6 sm:items-end">
-          <div className="sm:col-span-1">
-            <label className="form-label">Month</label>
-            <input
-              type="month"
-              className="form-input"
-              value={filters.month}
-              onChange={(e) => setFilters({ ...filters, month: e.target.value })}
-            />
-          </div>
-          <div className="sm:col-span-1">
-            <label className="form-label">Category</label>
-            <select
-              className="form-input"
-              value={filters.category}
-              onChange={(e) => setFilters({ ...filters, category: e.target.value })}
-            >
-              <option value="">All Categories</option>
-              {CATEGORIES.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="sm:col-span-1">
-            <label className="form-label">Department</label>
-            <input
-              type="text"
-              className="form-input"
-              placeholder="All Departments"
-              value={filters.department}
-              onChange={(e) => setFilters({ ...filters, department: e.target.value })}
-            />
-          </div>
-          <div className="sm:col-span-1">
-            <label className="form-label">Training Name</label>
-            <div className="relative">
-              <Search className="pointer-events-none absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2 text-slate-400" />
+        <div className="card-body space-y-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
+            <div>
+              <label className="form-label">Month</label>
               <input
-                type="text"
-                className="form-input pl-8"
-                placeholder="Search training"
-                value={filters.name}
-                onChange={(e) => setFilters({ ...filters, name: e.target.value })}
+                type="month"
+                className="form-input"
+                value={filters.month}
+                onChange={(e) => setFilters({ ...filters, month: e.target.value })}
               />
             </div>
+            <div>
+              <label className="form-label">Category</label>
+              <select
+                className="form-input"
+                value={filters.category}
+                onChange={(e) => setFilters({ ...filters, category: e.target.value })}
+              >
+                <option value="">All Categories</option>
+                {CATEGORIES.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="form-label">Department</label>
+              <input
+                type="text"
+                className="form-input"
+                placeholder="All Departments"
+                value={filters.department}
+                onChange={(e) => setFilters({ ...filters, department: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="form-label">Training Name</label>
+              <div className="relative">
+                <Search className="pointer-events-none absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  className="form-input pl-8"
+                  placeholder="Search training"
+                  value={filters.name}
+                  onChange={(e) => setFilters({ ...filters, name: e.target.value })}
+                />
+              </div>
+            </div>
           </div>
-          <button className="btn btn-outline sm:col-span-1" onClick={handleReset}>
-            <RotateCcw className="h-4 w-4" strokeWidth={2} />Reset Filters
-          </button>
-          <a className="btn btn-success sm:col-span-1" href={api.monthlyReportExportUrl(filters)}>
-            <FileSpreadsheet className="h-4 w-4" strokeWidth={2} />Export to Excel
-          </a>
-          <a
-            className="btn btn-outline sm:col-span-2"
-            href={api.monthlyAttendeeExportUrl(filters)}
-            style={{ borderColor: `${RED}33`, color: RED }}
-          >
-            <Users2 className="h-4 w-4" strokeWidth={2} />Export Attendee List
-          </a>
+
+          <div className="flex flex-wrap items-center justify-end gap-2 border-t border-zinc-100 pt-4">
+            <button className="btn btn-outline" onClick={handleReset}>
+              <RotateCcw className="h-4 w-4" strokeWidth={2} />Reset Filters
+            </button>
+            <a
+              className="btn btn-outline"
+              href={api.monthlyAttendeeExportUrl(filters)}
+              style={{ borderColor: `${RED}33`, color: RED }}
+            >
+              <Users2 className="h-4 w-4" strokeWidth={2} />Export Attendee List
+            </a>
+            <a className="btn btn-success" href={api.monthlyReportExportUrl(filters)}>
+              <FileSpreadsheet className="h-4 w-4" strokeWidth={2} />Export to Excel
+            </a>
+          </div>
         </div>
       </div>
 
@@ -703,7 +711,7 @@ export default function ReportsPage() {
 
       {/* Analysis: department participation, cost per attendee, monthly trend */}
       {rows && rows.length > 0 && (
-        <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <div className="mb-6 grid grid-cols-1 items-start gap-6 lg:grid-cols-3">
           <div className="card border-t-[3px]" style={{ borderTopColor: BLACK }}>
             <div className="card-body">
               <h2 className="mb-1 flex items-center gap-2 text-sm font-semibold text-zinc-900">
@@ -779,7 +787,7 @@ export default function ReportsPage() {
                     <tr key={r.id}>
                       <td className="font-medium text-slate-900">{r.name}</td>
                       <td>{r.category}</td>
-                      <td>{formatDate(r.training_date)}</td>
+                      <td>{formatDateRange(r.training_date, r.end_date)}</td>
                       <td>{r.venue || '-'}</td>
                       <td className="text-center">{r.nominee_count}</td>
                       <td className="text-center font-medium text-emerald-600">{r.attendee_count}</td>

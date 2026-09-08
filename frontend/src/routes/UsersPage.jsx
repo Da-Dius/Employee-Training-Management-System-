@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Navigate } from 'react-router-dom';
 import { UserPlus, Ticket, Clipboard, RefreshCw, Key, Trash2, ShieldCheck } from 'lucide-react';
 import * as api from '../api/client';
 import { formatDate } from '../utils';
@@ -12,7 +13,7 @@ const emptyResetForm = { password: '', confirm: '' };
 
 export default function UsersPage() {
   const { showToast } = useToast();
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, loading: authLoading } = useAuth();
   const isAdmin = currentUser?.role === 'admin';
 
   const [users, setUsers] = useState(null);
@@ -115,6 +116,10 @@ export default function UsersPage() {
       setResetSaving(false);
     }
   };
+
+  if (!authLoading && !isAdmin) {
+    return <Navigate to="/dashboard" replace />;
+  }
 
   return (
     <>

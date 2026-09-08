@@ -41,6 +41,7 @@ const trainingSchema = new Schema({
   description: String,
 
   // New fields
+  endDate: String, // optional — multi-day trainings only
   trainerName: String,
   lpoNumber: String,
   // LPO supporting document (receipt / purchase order proof) — same filename/originalName

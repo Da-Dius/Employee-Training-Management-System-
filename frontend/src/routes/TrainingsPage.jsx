@@ -3,6 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { Plus, X, Pencil, Trash2 } from 'lucide-react';
 import * as api from '../api/client';
 import { CATEGORIES, formatDate, formatMoney, statusBadgeClass } from '../utils';
+
+function formatDateRange(start, end) {
+  if (!end || end === start) return formatDate(start);
+  return `${formatDate(start)} \u2013 ${formatDate(end)}`;
+}
 import { useToast } from '../context/ToastContext';
 import TrainingFormModal from '../components/TrainingFormModal';
 import Spinner from '../components/Spinner';
@@ -162,7 +167,7 @@ export default function TrainingsPage() {
                   <tr key={t.id} className="clickable-row" onClick={() => navigate(`/trainings/${t.id}`)}>
                     <td className="font-medium text-slate-900">{t.name}</td>
                     <td>{t.category}</td>
-                    <td>{formatDate(t.training_date)}</td>
+                    <td>{formatDateRange(t.training_date, t.end_date)}</td>
                     <td>{t.venue || '-'}</td>
                     <td>{formatMoney(t.cost)}</td>
                     <td>

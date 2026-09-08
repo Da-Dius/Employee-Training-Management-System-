@@ -35,6 +35,7 @@ function initials(name) {
 
 export default function NavBar() {
   const { user, logout } = useAuth();
+  const visibleNavItems = NAV_ITEMS.filter((item) => item.to !== '/users' || user?.role === 'admin');
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -144,7 +145,7 @@ export default function NavBar() {
 
         {/* Desktop nav — active item gets a red underline */}
         <nav className="hidden items-center gap-1 md:flex">
-          {NAV_ITEMS.map(({ to, label, Icon }) => (
+          {visibleNavItems.map(({ to, label, Icon }) => (
             <NavLink key={to} to={to} className={desktopLinkClass}>
               {({ isActive }) => (
                 <>
@@ -290,7 +291,7 @@ export default function NavBar() {
             </div>
           </div>
           <nav className="flex flex-col gap-1 px-3 pb-2">
-            {NAV_ITEMS.map(({ to, label, Icon }) => (
+            {visibleNavItems.map(({ to, label, Icon }) => (
               <NavLink key={to} to={to} className={mobileLinkClass} onClick={() => setMobileOpen(false)}>
                 <Icon className="h-[18px] w-[18px]" strokeWidth={2} />
                 {label}

@@ -71,6 +71,7 @@ async function buildMonthlyReport({ month, category, department, name } = {}) {
     name: r.name,
     category: r.category,
     training_date: r.trainingDate,
+    end_date: r.endDate || null,
     venue: r.venue,
     nominee_count: r.nominee_count,
     attendee_count: r.attendee_count,
@@ -114,6 +115,7 @@ async function buildAttendeeReport({ month, category, department, name } = {}) {
   return rows.map((r) => ({
     training_name: r.name,
     training_date: r.trainingDate,
+    end_date: r.endDate || null,
     category: r.category,
     employee_name: r.nominees.name,
     employee_number: r.nominees.employeeNumber,
@@ -189,6 +191,7 @@ router.get('/monthly/export', asyncHandler(async (req, res) => {
     { header: 'Training Name', key: 'name', width: 30 },
     { header: 'Category', key: 'category', width: 16 },
     { header: 'Training Date', key: 'training_date', width: 15 },
+    { header: 'End Date', key: 'end_date', width: 15 },
     { header: 'Venue', key: 'venue', width: 20 },
     { header: 'Nominees', key: 'nominee_count', width: 10 },
     { header: 'Attendees', key: 'attendee_count', width: 10 },
@@ -205,6 +208,7 @@ router.get('/monthly/export', asyncHandler(async (req, res) => {
       name: r.name,
       category: r.category,
       training_date: r.training_date,
+      end_date: r.end_date || '',
       venue: r.venue,
       nominee_count: r.nominee_count,
       attendee_count: r.attendee_count,
@@ -237,6 +241,7 @@ router.get('/monthly/attendees/export', asyncHandler(async (req, res) => {
   sheet.columns = [
     { header: 'Training Name', key: 'training_name', width: 30 },
     { header: 'Training Date', key: 'training_date', width: 15 },
+    { header: 'End Date', key: 'end_date', width: 15 },
     { header: 'Category', key: 'category', width: 16 },
     { header: 'Employee Name', key: 'employee_name', width: 24 },
     { header: 'Employee Number', key: 'employee_number', width: 16 },
@@ -253,6 +258,7 @@ router.get('/monthly/attendees/export', asyncHandler(async (req, res) => {
     sheet.addRow({
       training_name: r.training_name,
       training_date: r.training_date,
+      end_date: r.end_date || '',
       category: r.category,
       employee_name: r.employee_name,
       employee_number: r.employee_number,

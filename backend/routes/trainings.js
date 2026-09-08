@@ -63,6 +63,7 @@ function serializeTraining(doc) {
     name: doc.name,
     category: doc.category,
     training_date: doc.trainingDate,
+    end_date: doc.endDate || null,
     venue: doc.venue,
     cost: doc.cost,
     paid: !!doc.paid, // TODO: remove once TrainingsPage/TrainingDetailPage/ReportsPage are migrated to service_entry
@@ -112,7 +113,7 @@ router.get('/:id', asyncHandler(async (req, res) => {
 // just leaves req.file undefined and all the text fields land in req.body as before)
 router.post('/', upload.single('lpo_attachment'), asyncHandler(async (req, res) => {
   const {
-    name, category, training_date, venue, cost, paid, per_diem, description,
+    name, category, training_date, end_date, venue, cost, paid, per_diem, description,
     trainer_name, lpo_number, service_entry,
   } = req.body;
 
@@ -128,6 +129,7 @@ router.post('/', upload.single('lpo_attachment'), asyncHandler(async (req, res) 
     name,
     category,
     trainingDate: training_date,
+    endDate: end_date || undefined,
     venue: venue || undefined,
     cost: Number(cost) || 0,
     paid: resolvedServiceEntry === 'Paid',
@@ -151,7 +153,7 @@ router.put('/:id', upload.single('lpo_attachment'), asyncHandler(async (req, res
   if (!existing) return res.status(404).json({ error: 'Training not found' });
 
   const {
-    name, category, training_date, venue, cost, paid, per_diem, description,
+    name, category, training_date, end_date, venue, cost, paid, per_diem, description,
     trainer_name, lpo_number, service_entry,
   } = req.body;
 
@@ -160,6 +162,7 @@ router.put('/:id', upload.single('lpo_attachment'), asyncHandler(async (req, res
   existing.name = name ?? existing.name;
   existing.category = category ?? existing.category;
   existing.trainingDate = training_date ?? existing.trainingDate;
+  existing.endDate = end_date ?? existing.endDate;
   existing.venue = venue ?? existing.venue;
   existing.cost = cost !== undefined ? Number(cost) : existing.cost;
   existing.paid = paid !== undefined ? !!paid : existing.paid;

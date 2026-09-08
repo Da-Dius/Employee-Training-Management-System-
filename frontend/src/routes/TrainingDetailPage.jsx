@@ -19,10 +19,12 @@ import {
   Download as DownloadIcon,
   FileUp,
   Mail,
+  MailCheck,
+  UserRoundPlus,
   ClipboardList,
 } from 'lucide-react';
 import * as api from '../api/client';
-import { formatDate, formatMoney, statusBadgeClass } from '../utils';
+import { formatDate, formatDateRange, formatMoney, nominationBadgeClass, statusBadgeClass } from '../utils';
 import { useToast } from '../context/ToastContext';
 import TrainingFormModal from '../components/TrainingFormModal';
 import NomineeFormModal from '../components/NomineeFormModal';
@@ -39,6 +41,8 @@ export default function TrainingDetailPage() {
   const [editOpen, setEditOpen] = useState(false);
   const [nomineeModalOpen, setNomineeModalOpen] = useState(false);
   const [importModalOpen, setImportModalOpen] = useState(false);
+  const [replaceTarget, setReplaceTarget] = useState(null);
+  const [requesting, setRequesting] = useState(false);
   const [uploadFiles, setUploadFiles] = useState(null);
 
   const loadTraining = useCallback(async () => {
@@ -93,12 +97,48 @@ export default function TrainingDetailPage() {
   const handleSendConfirmation = async (nomineeId) => {
     try {
       await api.sendConfirmationEmail(id, nomineeId);
-      showToast('Confirmation email sent');
+      showToast('Nomination email sent');
       loadNominees();
     } catch (e) {
       showToast(e.message, 'danger');
     }
   };
+
+  const handleSaveReplacement = async (data) => {
+    await api.replaceNominee(id, replaceTarget.id, data);
+    showToast(`Replacement added for ${replaceTarget.name}`);
+    setReplaceTarget(null);
+    loadNominees();
+  };
+
+  const handleRequestAttendance = async () => {
+    const accepted = nominees.filter((n) => n.nomination_status === 'Accepted' && n.email);
+    if (!accepted.length) {
+      showToast('Nobody who accepted has a work email on file', 'warning');
+      return;
+    }
+    if (!window.confirm(`Email ${accepted.length} nominee(s) who accepted, asking whether they attended?`)) return;
+
+    setRequesting(true);
+    try {
+      const { sent, skipped } = await api.requestAttendanceConfirmations(id);
+      // A toast can't carry per-recipient reasons (three variants, four seconds), so it
+      // reports the counts; the endpoint returns the detail if this ever needs a modal.
+      showToast(
+        `Sent ${sent.length}${skipped.length ? ` · ${skipped.length} skipped` : ''}`,
+        skipped.length ? 'warning' : 'success'
+      );
+      loadNominees();
+    } catch (e) {
+      showToast(e.message, 'danger');
+    } finally {
+      setRequesting(false);
+    }
+  };
+
+  // Both ends of a replacement pair are always nominees on the SAME training, so the
+  // list already in state resolves the link — no populate, no extra request.
+  const nomineeNameById = new Map(nominees.map((n) => [String(n.id), n.name]));
 
   function timeAgo(dateStr) {
     if (!dateStr) return null;
@@ -150,13 +190,16 @@ export default function TrainingDetailPage() {
       return /^[=+\-@]/.test(str) ? `'${str}` : str;
     };
     const escapeCsv = (value) => `"${sanitizeCsvField(value).replace(/"/g, '""')}"`;
-    const header = ['Name', 'Employee Number', 'Email', 'Confirmation Link', 'Self-Confirmed'];
+    // Decline reasons are deliberately left out: they're the only free employee text in
+    // the app, and this is the one place we hand-build a delimited string.
+    const header = ['Name', 'Employee Number', 'Email', 'Confirmation Link', 'Nomination Status', 'Attendance'];
     const rows = nomineesWithEmail.map((n) => [
       n.name,
       n.employee_number,
       n.email,
       `${window.location.origin}/confirm.html?token=${n.confirmation_token}`,
-      n.employee_confirmed ? 'Yes' : 'No',
+      n.nomination_status,
+      n.attendance_status,
     ]);
     const csv = [header, ...rows].map((row) => row.map(escapeCsv).join(',')).join('\r\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -221,7 +264,7 @@ export default function TrainingDetailPage() {
                 <span className={statusBadgeClass(training.status)}>{training.status}</span>
                 <span className="inline-flex items-center gap-1">
                   <Calendar className="h-4 w-4" strokeWidth={2} />
-                  {formatDate(training.training_date)}
+                  {formatDateRange(training.training_date, training.training_end_date)}
                 </span>
                 <span className="inline-flex items-center gap-1">
                   <MapPin className="h-4 w-4" strokeWidth={2} />
@@ -306,6 +349,14 @@ export default function TrainingDetailPage() {
               <button className="btn btn-outline btn-sm" onClick={() => setImportModalOpen(true)}>
                 <FileUp className="h-4 w-4" strokeWidth={2} />Import
               </button>
+              {/* Only once the training is over — asking "did you attend?" beforehand is
+                  nonsense, and the endpoint rejects it anyway. */}
+              {training.status === 'Completed' && (
+                <button className="btn btn-outline btn-sm" onClick={handleRequestAttendance} disabled={requesting}>
+                  <MailCheck className="h-4 w-4" strokeWidth={2} />
+                  {requesting ? 'Sending...' : 'Ask Who Attended'}
+                </button>
+              )}
               <button className="btn btn-primary btn-sm" onClick={() => setNomineeModalOpen(true)}>
                 <UserPlus className="h-4 w-4" strokeWidth={2} />Add Nominee
               </button>
@@ -321,7 +372,7 @@ export default function TrainingDetailPage() {
                   <th>Division</th>
                   <th>Section</th>
                   <th>Station/Region</th>
-                  <th>Self-Confirmed</th>
+                  <th>Nomination</th>
                   <th className="text-right">Actions</th>
                 </tr>
               </thead>
@@ -335,21 +386,42 @@ export default function TrainingDetailPage() {
                 )}
                 {nominees.map((n) => (
                   <tr key={n.id}>
-                    <td className="font-medium text-slate-900">{n.name}</td>
+                    {/* The replacement link lives here as a sub-line rather than in its
+                        own column: it would be empty on almost every row, and it reads
+                        naturally right under the name it qualifies. */}
+                    <td className="font-medium text-slate-900">
+                      {n.name}
+                      {n.replaces_nominee_id && (
+                        <div className="text-[11px] font-normal text-slate-400">
+                          replacing {nomineeNameById.get(String(n.replaces_nominee_id)) || 'a former nominee'}
+                        </div>
+                      )}
+                      {n.replaced_by_id && (
+                        <div className="text-[11px] font-normal text-slate-400">
+                          replaced by {nomineeNameById.get(String(n.replaced_by_id)) || 'a new nominee'}
+                        </div>
+                      )}
+                    </td>
                     <td>{n.employee_number}</td>
                     <td>{n.department || '-'}</td>
                     <td>{n.division || '-'}</td>
                     <td>{n.section || '-'}</td>
                     <td>{n.station_region || '-'}</td>
                     <td>
-                      {n.employee_confirmed ? (
-                        <span className="badge badge-green">Confirmed</span>
+                      {n.nomination_status === 'Accepted' ? (
+                        <span className={nominationBadgeClass('Accepted')}>Accepted</span>
+                      ) : n.nomination_status === 'Declined' ? (
+                        // The reason has no other home on this page, and a tooltip beats
+                        // spending a whole column on text most rows won't have.
+                        <span className={nominationBadgeClass('Declined')} title={n.decline_reason || 'No reason given'}>
+                          Declined
+                        </span>
                       ) : n.email ? (
                         <div className="flex flex-col items-start gap-1">
                           <div className="flex gap-1">
                             <button
                               className="btn btn-outline-primary btn-sm"
-                              title="Send confirmation email"
+                              title="Send nomination email"
                               onClick={() => handleSendConfirmation(n.id)}
                             >
                               <Mail className="h-4 w-4" strokeWidth={2} />Send
@@ -371,13 +443,26 @@ export default function TrainingDetailPage() {
                       )}
                     </td>
                     <td className="text-right">
-                      <button
-                        className="btn btn-outline-danger btn-icon"
-                        title="Remove"
-                        onClick={() => handleDeleteNominee(n.id)}
-                      >
-                        <Trash2 className="h-4 w-4" strokeWidth={2} />
-                      </button>
+                      <div className="flex justify-end gap-1">
+                        {/* Hidden once a replacement exists — the "replaced by" sub-line
+                            under the name is the explanation, so it never just vanishes. */}
+                        {n.nomination_status === 'Declined' && !n.replaced_by_id && (
+                          <button
+                            className="btn btn-outline-primary btn-sm"
+                            title="Nominate a replacement"
+                            onClick={() => setReplaceTarget(n)}
+                          >
+                            <UserRoundPlus className="h-4 w-4" strokeWidth={2} />Replace
+                          </button>
+                        )}
+                        <button
+                          className="btn btn-outline-danger btn-icon"
+                          title="Remove"
+                          onClick={() => handleDeleteNominee(n.id)}
+                        >
+                          <Trash2 className="h-4 w-4" strokeWidth={2} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -427,7 +512,27 @@ export default function TrainingDetailPage() {
       </div>
 
       <TrainingFormModal show={editOpen} training={training} onClose={() => setEditOpen(false)} onSave={handleSaveTraining} />
-      <NomineeFormModal show={nomineeModalOpen} onClose={() => setNomineeModalOpen(false)} onSave={handleAddNominee} />
+      <NomineeFormModal
+        show={nomineeModalOpen}
+        onClose={() => setNomineeModalOpen(false)}
+        onSave={handleAddNominee}
+        excludeEmployeeNumbers={nominees.map((n) => n.employee_number)}
+      />
+      {/* Same component, different labels — the replacement picker. */}
+      <NomineeFormModal
+        show={!!replaceTarget}
+        onClose={() => setReplaceTarget(null)}
+        onSave={handleSaveReplacement}
+        title={replaceTarget ? `Replace ${replaceTarget.name}` : 'Replace Nominee'}
+        submitLabel="Add Replacement"
+        savingLabel="Adding..."
+        notice={
+          replaceTarget
+            ? `${replaceTarget.name} declined. The person you pick will be nominated in their place — ${replaceTarget.name}'s row stays on the list, marked Declined.`
+            : ''
+        }
+        excludeEmployeeNumbers={nominees.map((n) => n.employee_number)}
+      />
       <NomineeImportModal
         show={importModalOpen}
         trainingId={id}

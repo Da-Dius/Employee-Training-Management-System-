@@ -22,21 +22,18 @@ function serialize(doc) {
   };
 }
 
-// Open to any signed-in staff member — viewing the roster isn't sensitive.
-router.get('/', asyncHandler(async (req, res) => {
+// Admin-only across the board now — the whole HR Users page is hidden from
+// non-admins in the frontend, so the API needs to match rather than leave the
+// roster/invite-code readable to anyone who hits these endpoints directly.
+router.get('/', requireAdmin, asyncHandler(async (req, res) => {
   const docs = await User.find().sort({ name: 1 });
   res.json(docs.map(serialize));
 }));
 
-// Open to any signed-in staff member — someone needs to be able to read the code to
-// share it, even if only an admin can regenerate it.
-router.get('/invite-code', asyncHandler(async (req, res) => {
+router.get('/invite-code', requireAdmin, asyncHandler(async (req, res) => {
   res.json({ invite_code: await getInviteCode() });
 }));
 
-// Admin-only from here down — creating accounts directly, deleting accounts, resetting
-// someone else's password, and regenerating the shared invite code are all things a
-// non-admin should no longer be able to do.
 router.post('/invite-code/regenerate', requireAdmin, asyncHandler(async (req, res) => {
   res.json({ invite_code: await regenerateInviteCode() });
 }));
