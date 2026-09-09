@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import Modal from './Modal';
+import * as api from '../api/client'; // Need the API to fetch departments
 
 const empty = {
     name: '',
@@ -20,6 +21,26 @@ export default function EmployeeFormModal({
     const [form, setForm] = useState(empty);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
+    const [departments, setDepartments] = useState([]); // State for the dropdown
+    const [loadingDepts, setLoadingDepts] = useState(false);
+
+    useEffect(() => {
+        if (show) {
+            loadDepartments();
+        }
+    }, [show]);
+
+    const loadDepartments = async () => {
+        try {
+            setLoadingDepts(true);
+            const data = await api.listDepartments();
+            setDepartments(data);
+        } catch (err) {
+            console.error('Failed to load departments', err);
+        } finally {
+            setLoadingDepts(false);
+        }
+    };
 
     useEffect(() => {
         if (employee) {
@@ -35,7 +56,6 @@ export default function EmployeeFormModal({
         } else {
             setForm(empty);
         }
-
         setError('');
     }, [employee, show]);
 
@@ -52,7 +72,6 @@ export default function EmployeeFormModal({
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-
         setSaving(true);
         setError('');
 
@@ -82,7 +101,6 @@ export default function EmployeeFormModal({
                     >
                         Cancel
                     </button>
-
                     <button
                         type="submit"
                         form="employeeForm"
@@ -104,112 +122,83 @@ export default function EmployeeFormModal({
                 className="grid grid-cols-1 gap-4 sm:grid-cols-2"
             >
                 <div className="sm:col-span-2">
-                    <label className="form-label">
-                        Employee Name *
-                    </label>
-
+                    <label className="form-label">Employee Name *</label>
                     <input
                         type="text"
                         className="form-input"
                         required
                         value={form.name}
-                        onChange={(e) =>
-                            handleChange('name', e.target.value)
-                        }
+                        onChange={(e) => handleChange('name', e.target.value)}
                         placeholder="Full employee name"
                     />
                 </div>
 
                 <div>
-                    <label className="form-label">
-                        Employee Number *
-                    </label>
-
+                    <label className="form-label">Employee Number *</label>
                     <input
                         type="text"
                         className="form-input"
                         required
                         value={form.employee_number}
-                        onChange={(e) =>
-                            handleChange('employee_number', e.target.value)
-                        }
+                        onChange={(e) => handleChange('employee_number', e.target.value)}
                         placeholder="Employee number"
                     />
                 </div>
 
                 <div>
-                    <label className="form-label">
-                        Work Email
-                    </label>
-
+                    <label className="form-label">Work Email</label>
                     <input
                         type="email"
                         className="form-input"
                         value={form.email}
-                        onChange={(e) =>
-                            handleChange('email', e.target.value)
-                        }
+                        onChange={(e) => handleChange('email', e.target.value)}
                         placeholder="employee@company.com"
                     />
                 </div>
 
+                {/* --- Updated to Select Dropdown --- */}
                 <div>
-                    <label className="form-label">
-                        Department
-                    </label>
-
-                    <input
-                        type="text"
+                    <label className="form-label">Department</label>
+                    <select
                         className="form-input"
                         value={form.department}
-                        onChange={(e) =>
-                            handleChange('department', e.target.value)
-                        }
-                    />
+                        onChange={(e) => handleChange('department', e.target.value)}
+                        disabled={loadingDepts}
+                    >
+                        <option value="">Select a department...</option>
+                        {departments.map(d => (
+                            <option key={d.id} value={d.name}>{d.name}</option>
+                        ))}
+                    </select>
                 </div>
 
                 <div>
-                    <label className="form-label">
-                        Division
-                    </label>
-
+                    <label className="form-label">Division</label>
                     <input
                         type="text"
                         className="form-input"
                         value={form.division}
-                        onChange={(e) =>
-                            handleChange('division', e.target.value)
-                        }
+                        onChange={(e) => handleChange('division', e.target.value)}
                     />
                 </div>
 
                 <div>
-                    <label className="form-label">
-                        Section
-                    </label>
-
+                    <label className="form-label">Section</label>
                     <input
                         type="text"
                         className="form-input"
                         value={form.section}
-                        onChange={(e) =>
-                            handleChange('section', e.target.value)
-                        }
+                        onChange={(e) => handleChange('section', e.target.value)}
                     />
                 </div>
 
                 <div>
-                    <label className="form-label">
-                        Station / Region
-                    </label>
-
+                    <label className="form-label">Station / Region</label>
                     <input
                         type="text"
                         className="form-input"
                         value={form.station_region}
-                        onChange={(e) =>
-                            handleChange('station_region', e.target.value)
-                        }
+                        onChange={(e) => handleChange('station_region', e.target.value)}
                     />
                 </div>
 

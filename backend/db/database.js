@@ -21,7 +21,6 @@ mongoose.connect(MONGODB_URI)
     process.exit(1);
   });
 
-// FIX 2: Globally configure Mongoose to output 'id' instead of '_id' and remove '__v'
 mongoose.set('toJSON', {
   virtuals: true,
   transform: (doc, ret) => {
@@ -34,72 +33,71 @@ mongoose.set('toJSON', {
 const { Schema } = mongoose;
 
 // ---------- Schemas ----------
-// FIX 3: Updated all keys to snake_case to perfectly match the React frontend payload
 
 const trainingSchema = new Schema({
   name: { type: String, required: true },
   category: { type: String, required: true },
-  training_date: { type: String, required: true }, // Was trainingDate
-  training_end_date: String,                       // Was trainingEndDate
+  training_date: { type: String, required: true },
+  training_end_date: String,
   venue: String,
   cost: { type: Number, required: true, default: 0 },
   paid: { type: Boolean, default: false },
-  per_diem: { type: Boolean, default: false },     // Was perDiem
+  per_diem: { type: Boolean, default: false },
   description: String,
-  trainer_name: String,                            // Was trainerName
-  lpo_number: String,                              // Was lpoNumber
-  lpo_attachment_filename: String,                 // Was lpoAttachmentFilename
-  lpo_attachment_original_name: String,            // Was lpoAttachmentOriginalName
-  service_entry: { type: String, enum: ['Paid', 'Not Paid'], default: 'Not Paid' }, // Was serviceEntry
+  trainer_name: String,
+  lpo_number: String,
+  lpo_attachment_filename: String,
+  lpo_attachment_original_name: String,
+  service_entry: { type: String, enum: ['Paid', 'Not Paid'], default: 'Not Paid' },
 }, { timestamps: true });
 
 const nomineeSchema = new Schema({
   training: { type: Schema.Types.ObjectId, ref: 'Training', required: true },
   name: { type: String, required: true },
-  employee_number: { type: String, required: true }, // Was employeeNumber
+  employee_number: { type: String, required: true },
   department: String,
   division: String,
   section: String,
-  station_region: String,                            // Was stationRegion
+  station_region: String,
   email: String,
 
-  nomination_status: { type: String, enum: ['Pending', 'Accepted', 'Declined'], default: 'Pending' }, // Was nominationStatus
-  nomination_responded_at: Date,                     // Was nominationRespondedAt
-  decline_reason: String,                            // Was declineReason
+  nomination_status: { type: String, enum: ['Pending', 'Accepted', 'Declined'], default: 'Pending' },
+  nomination_responded_at: Date,
+  decline_reason: String,
 
-  replaced_by: { type: Schema.Types.ObjectId, ref: 'Nominee' },        // Was replacedBy
-  replaces_nominee: { type: Schema.Types.ObjectId, ref: 'Nominee' },   // Was replacesNominee
+  replaced_by: { type: Schema.Types.ObjectId, ref: 'Nominee' },
+  replaces_nominee: { type: Schema.Types.ObjectId, ref: 'Nominee' },
 
-  attendance_status: { type: String, enum: ['Pending', 'Attended', 'Did Not Attend'], default: 'Pending' }, // Was attendanceStatus
-  attendance_self_reported: { type: Boolean, default: false },         // Was attendanceSelfReported
-  attendance_responded_at: Date,                     // Was attendanceRespondedAt
-  attendance_request_sent_at: Date,                  // Was attendanceRequestSentAt
+  attendance_status: { type: String, enum: ['Pending', 'Attended', 'Did Not Attend'], default: 'Pending' },
+  attendance_self_reported: { type: Boolean, default: false },
+  attendance_responded_at: Date,
+  attendance_request_sent_at: Date,
 
-  confirmation_token: { type: String, unique: true, sparse: true },    // Was confirmationToken
-  link_sent_at: Date,                                // Was linkSentAt
+  confirmation_token: { type: String, unique: true, sparse: true },
+  link_sent_at: Date,
 }, { timestamps: { createdAt: true, updatedAt: false } });
 
 const employeeSchema = new Schema({
   name: { type: String, required: true },
-  employee_number: { type: String, required: true, unique: true }, // Was employeeNumber
+  employee_number: { type: String, required: true, unique: true },
   department: String,
   division: String,
   section: String,
-  station_region: String,                            // Was stationRegion
+  station_region: String,
   email: String,
 }, { timestamps: true });
 
 const evidenceSchema = new Schema({
   training: { type: Schema.Types.ObjectId, ref: 'Training', required: true },
   filename: { type: String, required: true },
-  original_name: { type: String, required: true },   // Was originalName
+  original_name: { type: String, required: true },
   size: Number,
 }, { timestamps: { createdAt: 'uploadedAt', updatedAt: false } });
 
 const userSchema = new Schema({
   username: { type: String, required: true, unique: true },
   name: { type: String, required: true },
-  password_hash: { type: String, required: true },   // Was passwordHash
+  password_hash: { type: String, required: true },
   role: { type: String, enum: ['admin', 'staff'], default: 'staff' },
 }, { timestamps: { createdAt: true, updatedAt: false } });
 
@@ -118,6 +116,10 @@ const settingSchema = new Schema({
   value: { type: String, required: true },
 });
 
+const departmentSchema = new Schema({
+  name: { type: String, required: true, unique: true },
+}, { timestamps: true });
+
 
 // ---------- Models ----------
 
@@ -128,6 +130,7 @@ const Evidence = mongoose.model('Evidence', evidenceSchema);
 const User = mongoose.model('User', userSchema);
 const Notification = mongoose.model('Notification', notificationSchema);
 const Setting = mongoose.model('Setting', settingSchema);
+const Department = mongoose.model('Department', departmentSchema);
 
 // ---------- Helpers ----------
 
@@ -214,6 +217,7 @@ module.exports = {
   User,
   Notification,
   Setting,
+  Department,
   genToken,
   nairobiDateString,
   hasTrainingEnded,

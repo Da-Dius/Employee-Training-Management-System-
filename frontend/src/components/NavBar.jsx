@@ -11,15 +11,18 @@ import {
   Menu,
   X,
   Bell,
+  Building2 // <-- Added icon for Departments
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import * as api from '../api/client';
 import { subscribeNotificationRefresh } from '../notificationBus';
 
+// Added Departments to the navigation
 const NAV_ITEMS = [
   { to: '/dashboard', label: 'Dashboard', Icon: LayoutDashboard },
   { to: '/trainings', label: 'Trainings', Icon: BookText },
   { to: '/employees', label: 'Employees', Icon: Users },
+  { to: '/departments', label: 'Departments', Icon: Building2 }, // <-- Added
   { to: '/reports', label: 'Reports', Icon: FileBarChart2 },
   { to: '/users', label: 'HR Users', Icon: Users },
 ];
@@ -38,7 +41,7 @@ function initials(name) {
 
 export default function NavBar() {
   const { user, logout } = useAuth();
-  const visibleNavItems = NAV_ITEMS.filter((item) => item.to !== '/users' || user?.role === 'admin');
+  const visibleNavItems = NAV_ITEMS.filter((item) => !['/users', '/departments'].includes(item.to) || user?.role === 'admin');
   const navigate = useNavigate();
 
   const [mobileOpen, setMobileOpen] = useState(false);

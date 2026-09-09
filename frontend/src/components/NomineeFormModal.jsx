@@ -74,7 +74,6 @@ export default function NomineeFormModal({
   const handleEmployeeSelect = (employee) => {
     setSelectedEmployee(employee);
 
-    // Fixed the camelCase mismatch to align with your MongoDB backend
     setForm({
       name: employee.name || '',
       employee_number: employee.employee_number || '',
@@ -170,11 +169,8 @@ export default function NomineeFormModal({
           </div>
         )}
 
-        {/* Employee Search */}
         <div className="relative sm:col-span-2">
-          <label className="form-label">
-            Employee *
-          </label>
+          <label className="form-label">Employee *</label>
 
           <div className="relative">
             <Search
@@ -211,7 +207,6 @@ export default function NomineeFormModal({
             )}
           </div>
 
-          {/* Search Results - Upgraded to use your .card styling */}
           {showEmployeeResults && (
             <div className="card absolute z-50 mt-1 max-h-60 w-full overflow-y-auto">
               {searchingEmployees && (
@@ -231,7 +226,7 @@ export default function NomineeFormModal({
                   const already = excluded.has(employee.employee_number);
                   return (
                     <button
-                      key={employee._id}
+                      key={employee.id}
                       type="button"
                       disabled={already}
                       className={`flex w-full items-start gap-3 border-b border-zinc-100 px-4 py-3 text-left transition-colors last:border-b-0 ${already ? 'cursor-not-allowed opacity-50' : 'hover:bg-zinc-50'
@@ -246,19 +241,16 @@ export default function NomineeFormModal({
                         <span className="block truncate text-sm font-medium text-zinc-900">
                           {employee.name}
                         </span>
-
                         <span className="block text-xs text-zinc-500">
                           {employee.employee_number}
                           {employee.department ? ` • ${employee.department}` : ''}
                         </span>
-
                         {employee.email && (
                           <span className="block truncate text-xs text-zinc-400">
                             {employee.email}
                           </span>
                         )}
                       </span>
-
                       {already && (
                         <span className="ml-auto shrink-0 text-[11px] text-zinc-400">
                           Already a nominee
@@ -271,20 +263,14 @@ export default function NomineeFormModal({
           )}
         </div>
 
-        {/* Selected Employee Indicator */}
         {selectedEmployee && (
           <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 sm:col-span-2">
             <div className="flex items-center gap-2">
-              <UserRound
-                className="h-4 w-4 text-emerald-600"
-                strokeWidth={2}
-              />
-
+              <UserRound className="h-4 w-4 text-emerald-600" strokeWidth={2} />
               <div>
                 <div className="text-sm font-medium text-emerald-800">
                   Employee selected
                 </div>
-
                 <div className="text-xs text-emerald-700">
                   {selectedEmployee.name} — {selectedEmployee.employee_number}
                 </div>
@@ -293,79 +279,35 @@ export default function NomineeFormModal({
           </div>
         )}
 
-        {/* Read-Only Fields */}
         <div className="sm:col-span-2">
           <label className="form-label">Name</label>
-          <input
-            type="text"
-            className="form-input cursor-not-allowed bg-zinc-50 text-zinc-500"
-            value={form.name}
-            readOnly
-          />
+          <input type="text" className="form-input cursor-not-allowed bg-zinc-50 text-zinc-500" value={form.name} readOnly />
         </div>
-
         <div>
           <label className="form-label">Employee Number</label>
-          <input
-            type="text"
-            className="form-input cursor-not-allowed bg-zinc-50 text-zinc-500"
-            value={form.employee_number}
-            readOnly
-          />
+          <input type="text" className="form-input cursor-not-allowed bg-zinc-50 text-zinc-500" value={form.employee_number} readOnly />
         </div>
-
         <div>
           <label className="form-label">Work Email</label>
-          <input
-            type="email"
-            className="form-input cursor-not-allowed bg-zinc-50 text-zinc-500"
-            placeholder="For attendance confirmation"
-            value={form.email}
-            readOnly
-          />
+          <input type="email" className="form-input cursor-not-allowed bg-zinc-50 text-zinc-500" value={form.email} readOnly />
         </div>
-
         <div>
           <label className="form-label">Department</label>
-          <input
-            type="text"
-            className="form-input cursor-not-allowed bg-zinc-50 text-zinc-500"
-            value={form.department}
-            readOnly
-          />
+          <input type="text" className="form-input cursor-not-allowed bg-zinc-50 text-zinc-500" value={form.department} readOnly />
         </div>
-
         <div>
           <label className="form-label">Division</label>
-          <input
-            type="text"
-            className="form-input cursor-not-allowed bg-zinc-50 text-zinc-500"
-            value={form.division}
-            readOnly
-          />
+          <input type="text" className="form-input cursor-not-allowed bg-zinc-50 text-zinc-500" value={form.division} readOnly />
         </div>
-
         <div>
           <label className="form-label">Section</label>
-          <input
-            type="text"
-            className="form-input cursor-not-allowed bg-zinc-50 text-zinc-500"
-            value={form.section}
-            readOnly
-          />
+          <input type="text" className="form-input cursor-not-allowed bg-zinc-50 text-zinc-500" value={form.section} readOnly />
         </div>
-
         <div>
           <label className="form-label">Station / Region</label>
-          <input
-            type="text"
-            className="form-input cursor-not-allowed bg-zinc-50 text-zinc-500"
-            value={form.station_region}
-            readOnly
-          />
+          <input type="text" className="form-input cursor-not-allowed bg-zinc-50 text-zinc-500" value={form.station_region} readOnly />
         </div>
 
-        {/* Error */}
         {error && (
           <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 sm:col-span-2">
             {error}

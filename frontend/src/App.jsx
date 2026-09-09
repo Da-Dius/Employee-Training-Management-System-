@@ -10,6 +10,7 @@ import AttendancePage from './routes/AttendancePage';
 import EmployeesPage from './routes/EmployeesPage';
 import ReportsPage from './routes/ReportsPage';
 import UsersPage from './routes/UsersPage';
+import DepartmentsPage from './routes/DepartmentsPage'; // <-- Added
 
 function Layout() {
   return (
@@ -35,6 +36,7 @@ export default function App() {
           <Route path="/trainings/:id/attendance" element={<AttendancePage />} />
           <Route path="/employees" element={<EmployeesPage />} />
           <Route path="/reports" element={<ReportsPage />} />
+          <Route path="/departments" element={<DepartmentsPage />} /> {/* <-- Added */}
           <Route path="/users" element={<UsersPage />} />
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
         </Route>

@@ -151,3 +151,13 @@ export const listDepartmentStats = (filters = {}) => {
   const qs = new URLSearchParams(Object.entries(filters).filter(([, v]) => v));
   return request(`${BASE}/reports/monthly/department-stats?${qs.toString()}`);
 };
+
+// --- Departments ---
+export const listDepartments = () =>
+  request(`${BASE}/departments`);
+export const createDepartment = (data) =>
+  request(`${BASE}/departments`, { method: 'POST', ...jsonBody(data) });
+export const updateDepartment = (id, data) =>
+  request(`${BASE}/departments/${id}`, { method: 'PUT', ...jsonBody(data) });
+export const deleteDepartment = (id) =>
+  request(`${BASE}/departments/${id}`, { method: 'DELETE' });

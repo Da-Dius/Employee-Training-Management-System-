@@ -19,6 +19,7 @@ const reportsRouter = require('./routes/reports');
 const confirmRouter = require('./routes/confirm');
 const employeesRouter = require('./routes/employees');
 const notificationsRouter = require('./routes/notifications');
+const departmentsRouter = require('./routes/departments');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -72,6 +73,7 @@ async function main() {
   app.use('/api/trainings/:trainingId/evidence', requireAuth, evidenceRouter);
   app.use('/api/trainings', requireAuth, trainingsRouter);
   app.use('/api/notifications', requireAuth, notificationsRouter);
+  app.use('/api/departments', requireAuth, departmentsRouter);
 
 
   app.use('/api', (req, res) => {
