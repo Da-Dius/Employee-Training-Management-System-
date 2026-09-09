@@ -21,15 +21,12 @@ function serialize(doc) {
     id: doc._id,
     training_id: doc.training,
     filename: doc.filename,
-    original_name: doc.originalName,
+    original_name: doc.original_name,
     size: doc.size,
     uploaded_at: doc.uploadedAt,
   };
 }
 
-// NOTE: this still writes to local disk (uploadsDir), same as before. On Render's free
-// tier this won't persist across redeploys/restarts — that's the R2 migration, coming next.
-// Nothing below in this block changes for that migration except `destination`.
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, uploadsDir),
   filename: (req, file, cb) => {
@@ -38,7 +35,6 @@ const storage = multer.diskStorage({
   },
 });
 
-// Attendance registers, photos, and reports — images, PDFs, and common office documents.
 const ALLOWED_MIME_TYPES = new Set([
   'image/jpeg',
   'image/png',
@@ -68,14 +64,12 @@ const upload = multer({
   fileFilter,
 });
 
-// GET /api/trainings/:trainingId/evidence
 router.get('/', asyncHandler(async (req, res) => {
   if (!isValidId(req.params.trainingId)) return res.json([]);
   const docs = await Evidence.find({ training: req.params.trainingId }).sort({ uploadedAt: -1 });
   res.json(docs.map(serialize));
 }));
 
-// POST /api/trainings/:trainingId/evidence  (multipart/form-data, field name "files", multiple allowed)
 router.post('/', upload.array('files', 10), asyncHandler(async (req, res) => {
   if (!isValidId(req.params.trainingId)) return res.status(404).json({ error: 'Training not found' });
   const training = await Training.findById(req.params.trainingId).select('_id');
@@ -88,7 +82,7 @@ router.post('/', upload.array('files', 10), asyncHandler(async (req, res) => {
       Evidence.create({
         training: req.params.trainingId,
         filename: f.filename,
-        originalName: f.originalname,
+        original_name: f.originalname, // Fixed to map to snake_case
         size: f.size,
       })
     )
@@ -97,7 +91,6 @@ router.post('/', upload.array('files', 10), asyncHandler(async (req, res) => {
   res.status(201).json(inserted.map(serialize));
 }));
 
-// GET /api/trainings/:trainingId/evidence/:evidenceId/download
 router.get('/:evidenceId/download', asyncHandler(async (req, res) => {
   if (!isValidId(req.params.trainingId) || !isValidId(req.params.evidenceId)) {
     return res.status(404).json({ error: 'Evidence not found' });
@@ -105,7 +98,8 @@ router.get('/:evidenceId/download', asyncHandler(async (req, res) => {
   const doc = await Evidence.findOne({ _id: req.params.evidenceId, training: req.params.trainingId });
   if (!doc) return res.status(404).json({ error: 'Evidence not found' });
 
-  res.download(path.join(uploadsDir, doc.filename), doc.originalName);
+  // Fixed to doc.original_name
+  res.download(path.join(uploadsDir, doc.filename), doc.original_name);
 }));
 
 router.delete('/:evidenceId', asyncHandler(async (req, res) => {

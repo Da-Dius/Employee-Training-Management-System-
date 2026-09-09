@@ -44,9 +44,7 @@ router.post('/signup', authRateLimiter, asyncHandler(async (req, res) => {
   const user = await User.create({
     username: normalizedUsername,
     name: name.trim(),
-    passwordHash: hashPassword(password),
-    // The very first account on the whole system becomes admin automatically — the
-    // same moment that already lets it skip the invite code.
+    password_hash: hashPassword(password),
     role: isFirstAccount ? 'admin' : 'staff',
   });
 
@@ -64,7 +62,7 @@ router.post('/login', authRateLimiter, asyncHandler(async (req, res) => {
   }
 
   const user = await User.findOne({ username: username.trim().toLowerCase() });
-  if (!user || !verifyPassword(password, user.passwordHash)) {
+  if (!user || !verifyPassword(password, user.password_hash)) {
     return res.status(401).json({ error: 'Invalid username or password' });
   }
 

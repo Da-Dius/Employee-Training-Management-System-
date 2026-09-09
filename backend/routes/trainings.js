@@ -13,15 +13,10 @@ function asyncHandler(fn) {
 
 function trainingStatus(startDate, endDate) {
   const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Nairobi' }).format(new Date());
-  // A multi-day training isn't done until its last day passes. With no end date the
-  // effective end is the start date, which is the previous single-date behaviour exactly.
   const effectiveEnd = endDate || startDate;
   return effectiveEnd >= today ? 'Upcoming' : 'Completed';
 }
 
-// Same multer setup as routes/evidence.js — same disk destination, same allowed types,
-// same error-message convention the global handler in server.js already recognizes
-// (LIMIT_FILE_SIZE -> 413, "Unsupported file type" prefix -> 400).
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, uploadsDir),
   filename: (req, file, cb) => {
@@ -59,28 +54,27 @@ const upload = multer({
   fileFilter,
 });
 
-
 function serializeTraining(doc) {
   return {
-    id: doc._id,
+    id: doc.id, // Comes from our global virtual 'id' in database.js
     name: doc.name,
     category: doc.category,
-    training_date: doc.trainingDate,
+    training_date: doc.training_date,
+    training_end_date: doc.training_end_date || '',
     venue: doc.venue,
     cost: doc.cost,
-    paid: !!doc.paid, // TODO: remove once TrainingsPage/TrainingDetailPage/ReportsPage are migrated to service_entry
-    per_diem: !!doc.perDiem,
+    paid: !!doc.paid,
+    per_diem: !!doc.per_diem,
     description: doc.description,
-    trainer_name: doc.trainerName,
-    lpo_number: doc.lpoNumber,
-    lpo_attachment_name: doc.lpoAttachmentOriginalName || null,
-    service_entry: doc.serviceEntry || 'Not Paid',
-    status: trainingStatus(doc.trainingDate, doc.trainingEndDate),
+    trainer_name: doc.trainer_name,
+    lpo_number: doc.lpo_number,
+    lpo_attachment_name: doc.lpo_attachment_original_name || null,
+    service_entry: doc.service_entry || 'Not Paid',
+    status: trainingStatus(doc.training_date, doc.training_end_date),
     created_at: doc.createdAt,
     updated_at: doc.updatedAt,
   };
 }
-
 
 router.get('/', asyncHandler(async (req, res) => {
   const { name, category, date, department } = req.query;
@@ -88,16 +82,15 @@ router.get('/', asyncHandler(async (req, res) => {
   const filter = {};
   if (name) filter.name = { $regex: name, $options: 'i' };
   if (category) filter.category = category;
-  if (date) filter.trainingDate = date;
+  if (date) filter.training_date = date;
 
   if (department) {
-
     const matches = await Nominee.find({ department: { $regex: department, $options: 'i' } }).select('training');
     const trainingIds = [...new Set(matches.map((n) => n.training.toString()))];
     filter._id = { $in: trainingIds };
   }
 
-  const trainings = await Training.find(filter).sort({ trainingDate: -1 });
+  const trainings = await Training.find(filter).sort({ training_date: -1 });
   res.json(trainings.map(serializeTraining));
 }));
 
@@ -110,12 +103,9 @@ router.get('/:id', asyncHandler(async (req, res) => {
   res.json(serializeTraining(training));
 }));
 
-// POST /api/trainings  (multipart/form-data — same convention as evidence upload;
-// the LPO attachment is optional, so a request with no file still works fine, multer
-// just leaves req.file undefined and all the text fields land in req.body as before)
 router.post('/', upload.single('lpo_attachment'), asyncHandler(async (req, res) => {
   const {
-    name, category, training_date, venue, cost, paid, per_diem, description,
+    name, category, training_date, training_end_date, venue, cost, paid, per_diem, description,
     trainer_name, lpo_number, service_entry,
   } = req.body;
 
@@ -127,24 +117,23 @@ router.post('/', upload.single('lpo_attachment'), asyncHandler(async (req, res) 
     return res.status(400).json({ error: 'End date must be on or after the training date' });
   }
 
-  // paid is derived from serviceEntry now that the form no longer has its own
-  // checkbox for it — keeps existing Paid/Free badges elsewhere working unchanged.
   const resolvedServiceEntry = service_entry === 'Paid' ? 'Paid' : 'Not Paid';
 
   const training = await Training.create({
     name,
     category,
-    trainingDate: training_date,
+    training_date,
+    training_end_date: training_end_date || undefined,
     venue: venue || undefined,
     cost: Number(cost) || 0,
     paid: resolvedServiceEntry === 'Paid',
-    perDiem: !!per_diem,
+    per_diem: !!per_diem,
     description: description || undefined,
-    trainerName: trainer_name || undefined,
-    lpoNumber: lpo_number || undefined,
-    serviceEntry: resolvedServiceEntry,
-    lpoAttachmentFilename: req.file ? req.file.filename : undefined,
-    lpoAttachmentOriginalName: req.file ? req.file.originalname : undefined,
+    trainer_name: trainer_name || undefined,
+    lpo_number: lpo_number || undefined,
+    service_entry: resolvedServiceEntry,
+    lpo_attachment_filename: req.file ? req.file.filename : undefined,
+    lpo_attachment_original_name: req.file ? req.file.originalname : undefined,
   });
 
   res.status(201).json(serializeTraining(training));
@@ -158,70 +147,66 @@ router.put('/:id', upload.single('lpo_attachment'), asyncHandler(async (req, res
   if (!existing) return res.status(404).json({ error: 'Training not found' });
 
   const {
-    name, category, training_date, venue, cost, paid, per_diem, description,
+    name, category, training_date, training_end_date, venue, cost, paid, per_diem, description,
     trainer_name, lpo_number, service_entry,
   } = req.body;
 
-  // Validate the document as it *will* be, not just what was submitted — otherwise an
-  // edit that moves only the start date past an already-stored end date slips through.
-  const nextStart = training_date ?? existing.trainingDate;
-  const nextEnd = training_end_date !== undefined ? training_end_date : existing.trainingEndDate;
+  const nextStart = training_date ?? existing.training_date;
+  const nextEnd = training_end_date !== undefined ? training_end_date : existing.training_end_date;
+
   if (nextEnd && nextEnd < nextStart) {
     return res.status(400).json({ error: 'End date must be on or after the training date' });
   }
 
-  // Start date only, on purpose: the 'training_starting' notification is generated from
-  // trainingDate alone and its message says "starts today/tomorrow", so an end-date edit
-  // doesn't make it stale — and regenerating would resurrect an already-read notification.
-  const dateChanged = training_date !== undefined && training_date !== existing.trainingDate;
+  const dateChanged = training_date !== undefined && training_date !== existing.training_date;
 
   existing.name = name ?? existing.name;
   existing.category = category ?? existing.category;
-  existing.trainingDate = training_date ?? existing.trainingDate;
-  existing.venue = venue ?? existing.venue;
-  existing.cost = cost !== undefined ? Number(cost) : existing.cost;
-  existing.paid = paid !== undefined ? !!paid : existing.paid;
-  existing.perDiem = per_diem !== undefined ? !!per_diem : existing.perDiem;
-  existing.description = description ?? existing.description;
-  existing.trainerName = trainer_name ?? existing.trainerName;
-  existing.lpoNumber = lpo_number ?? existing.lpoNumber;
-  if (service_entry !== undefined) {
-    existing.serviceEntry = service_entry === 'Paid' ? 'Paid' : 'Not Paid';
-    existing.paid = existing.serviceEntry === 'Paid';
+  existing.training_date = training_date ?? existing.training_date;
+
+  // Handling the clearing of an end date
+  if (training_end_date !== undefined) {
+    existing.training_end_date = training_end_date || undefined;
   }
 
-  // Replacing an LPO attachment: delete the old file from disk before pointing at the new one.
+  existing.venue = venue ?? existing.venue;
+  existing.cost = cost !== undefined ? Number(cost) : existing.cost;
+  existing.per_diem = per_diem !== undefined ? !!per_diem : existing.per_diem;
+  existing.description = description ?? existing.description;
+  existing.trainer_name = trainer_name ?? existing.trainer_name;
+  existing.lpo_number = lpo_number ?? existing.lpo_number;
+
+  if (service_entry !== undefined) {
+    existing.service_entry = service_entry === 'Paid' ? 'Paid' : 'Not Paid';
+    existing.paid = existing.service_entry === 'Paid';
+  }
+
   if (req.file) {
-    if (existing.lpoAttachmentFilename) {
-      fs.unlink(path.join(uploadsDir, existing.lpoAttachmentFilename), () => { });
+    if (existing.lpo_attachment_filename) {
+      fs.unlink(path.join(uploadsDir, existing.lpo_attachment_filename), () => { });
     }
-    existing.lpoAttachmentFilename = req.file.filename;
-    existing.lpoAttachmentOriginalName = req.file.originalname;
+    existing.lpo_attachment_filename = req.file.filename;
+    existing.lpo_attachment_original_name = req.file.originalname;
   }
 
   await existing.save();
 
   if (dateChanged) {
-    // The training was rescheduled — any existing "starts today/tomorrow" notification
-    // now has a stale date baked into its message. Delete it so the next notifications
-    // sync (see routes/notifications.js) regenerates it fresh against the new date,
-    // instead of leaving an outdated reminder sitting in everyone's notification list.
     await Notification.deleteOne({ type: 'training_starting', refId: existing._id });
   }
 
   res.json(serializeTraining(existing));
 }));
 
-// GET /api/trainings/:id/lpo-attachment/download
 router.get('/:id/lpo-attachment/download', asyncHandler(async (req, res) => {
   if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
     return res.status(404).json({ error: 'Training not found' });
   }
   const training = await Training.findById(req.params.id);
-  if (!training || !training.lpoAttachmentFilename) {
+  if (!training || !training.lpo_attachment_filename) {
     return res.status(404).json({ error: 'No LPO attachment on file' });
   }
-  res.download(path.join(uploadsDir, training.lpoAttachmentFilename), training.lpoAttachmentOriginalName);
+  res.download(path.join(uploadsDir, training.lpo_attachment_filename), training.lpo_attachment_original_name);
 }));
 
 router.delete('/:id', asyncHandler(async (req, res) => {
@@ -233,14 +218,12 @@ router.delete('/:id', asyncHandler(async (req, res) => {
 
   const evidenceFiles = await Evidence.find({ training: existing._id }).select('filename');
 
-  if (existing.lpoAttachmentFilename) {
-    fs.unlink(path.join(uploadsDir, existing.lpoAttachmentFilename), () => { });
+  if (existing.lpo_attachment_filename) {
+    fs.unlink(path.join(uploadsDir, existing.lpo_attachment_filename), () => { });
   }
 
   await Training.deleteOne({ _id: existing._id });
-  // Collected before the delete: decline notifications are keyed on the NOMINEE id, so
-  // once the rows are gone there is no way to find the notifications that point at them,
-  // and they'd linger in the bell linking to a training that no longer exists.
+
   const nomineeIds = (await Nominee.find({ training: existing._id }).select('_id')).map((n) => n._id);
 
   await Nominee.deleteMany({ training: existing._id });

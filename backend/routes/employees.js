@@ -8,13 +8,6 @@ function asyncHandler(fn) {
 }
 
 // GET /api/employees
-// Get employees with optional search/filter parameters.
-//
-// Examples:
-// /api/employees
-// /api/employees?search=john
-// /api/employees?department=Finance
-// /api/employees?search=EMP001
 router.get('/', asyncHandler(async (req, res) => {
     const { search, department } = req.query;
 
@@ -25,7 +18,7 @@ router.get('/', asyncHandler(async (req, res) => {
 
         filter.$or = [
             { name: searchRegex },
-            { employeeNumber: searchRegex },
+            { employee_number: searchRegex },
             { email: searchRegex },
         ];
     }
@@ -42,12 +35,16 @@ router.get('/', asyncHandler(async (req, res) => {
         .sort({ name: 1 })
         .lean();
 
-    res.json(employees);
+    // Mongoose virtuals don't apply to .lean(), so we manually map 'id'
+    const formattedEmployees = employees.map(emp => {
+        const { _id, __v, ...rest } = emp;
+        return { id: _id.toString(), ...rest };
+    });
+
+    res.json(formattedEmployees);
 }));
 
-
 // GET /api/employees/:id
-// Get one employee by MongoDB ID.
 router.get('/:id', asyncHandler(async (req, res) => {
     const employee = await Employee.findById(req.params.id).lean();
 
@@ -55,31 +52,30 @@ router.get('/:id', asyncHandler(async (req, res) => {
         return res.status(404).json({ error: 'Employee not found' });
     }
 
-    res.json(employee);
+    const { _id, __v, ...rest } = employee;
+    res.json({ id: _id.toString(), ...rest });
 }));
 
-
 // POST /api/employees
-// Create a new employee.
 router.post('/', asyncHandler(async (req, res) => {
     const {
         name,
-        employeeNumber,
+        employee_number,
         department,
         division,
         section,
-        stationRegion,
+        station_region,
         email,
     } = req.body;
 
-    if (!name || !employeeNumber) {
+    if (!name || !employee_number) {
         return res.status(400).json({
             error: 'Name and employee number are required',
         });
     }
 
     const existingEmployee = await Employee.findOne({
-        employeeNumber: employeeNumber.trim(),
+        employee_number: employee_number.trim(),
     });
 
     if (existingEmployee) {
@@ -90,39 +86,37 @@ router.post('/', asyncHandler(async (req, res) => {
 
     const employee = await Employee.create({
         name: name.trim(),
-        employeeNumber: employeeNumber.trim(),
+        employee_number: employee_number.trim(),
         department: department?.trim() || '',
         division: division?.trim() || '',
         section: section?.trim() || '',
-        stationRegion: stationRegion?.trim() || '',
+        station_region: station_region?.trim() || '',
         email: email?.trim() || '',
     });
 
-    res.status(201).json(employee);
+    res.status(201).json(employee); // Global toJSON transformer will handle _id -> id
 }));
 
-
 // PUT /api/employees/:id
-// Update an employee.
 router.put('/:id', asyncHandler(async (req, res) => {
     const {
         name,
-        employeeNumber,
+        employee_number,
         department,
         division,
         section,
-        stationRegion,
+        station_region,
         email,
     } = req.body;
 
-    if (!name || !employeeNumber) {
+    if (!name || !employee_number) {
         return res.status(400).json({
             error: 'Name and employee number are required',
         });
     }
 
     const duplicate = await Employee.findOne({
-        employeeNumber: employeeNumber.trim(),
+        employee_number: employee_number.trim(),
         _id: { $ne: req.params.id },
     });
 
@@ -136,11 +130,11 @@ router.put('/:id', asyncHandler(async (req, res) => {
         req.params.id,
         {
             name: name.trim(),
-            employeeNumber: employeeNumber.trim(),
+            employee_number: employee_number.trim(),
             department: department?.trim() || '',
             division: division?.trim() || '',
             section: section?.trim() || '',
-            stationRegion: stationRegion?.trim() || '',
+            station_region: station_region?.trim() || '',
             email: email?.trim() || '',
         },
         {
@@ -155,12 +149,10 @@ router.put('/:id', asyncHandler(async (req, res) => {
         });
     }
 
-    res.json(employee);
+    res.json(employee); // Global toJSON transformer will handle _id -> id
 }));
 
-
 // DELETE /api/employees/:id
-// Delete an employee.
 router.delete('/:id', asyncHandler(async (req, res) => {
     const employee = await Employee.findByIdAndDelete(req.params.id);
 
@@ -174,6 +166,5 @@ router.delete('/:id', asyncHandler(async (req, res) => {
         message: 'Employee deleted successfully',
     });
 }));
-
 
 module.exports = router;

@@ -22,9 +22,6 @@ function serialize(doc) {
   };
 }
 
-// Admin-only across the board now — the whole HR Users page is hidden from
-// non-admins in the frontend, so the API needs to match rather than leave the
-// roster/invite-code readable to anyone who hits these endpoints directly.
 router.get('/', requireAdmin, asyncHandler(async (req, res) => {
   const docs = await User.find().sort({ name: 1 });
   res.json(docs.map(serialize));
@@ -56,7 +53,7 @@ router.post('/', requireAdmin, asyncHandler(async (req, res) => {
   const user = await User.create({
     username: normalizedUsername,
     name: name.trim(),
-    passwordHash: hashPassword(password),
+    password_hash: hashPassword(password),
     role: role === 'admin' ? 'admin' : 'staff',
   });
 
@@ -73,7 +70,7 @@ router.post('/:id/reset-password', requireAdmin, asyncHandler(async (req, res) =
     return res.status(400).json({ error: 'Password must be at least 8 characters' });
   }
 
-  await User.updateOne({ _id: req.params.id }, { passwordHash: hashPassword(new_password) });
+  await User.updateOne({ _id: req.params.id }, { password_hash: hashPassword(new_password) });
   res.status(204).end();
 }));
 

@@ -7,7 +7,6 @@ function asyncHandler(fn) {
     return (req, res, next) => fn(req, res, next).catch(next);
 }
 
-
 function nairobiDateString(daysOffset = 0) {
     const d = new Date(Date.now() + daysOffset * 86400000);
     return new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Nairobi' }).format(d);
@@ -17,11 +16,12 @@ async function generateDueNotifications() {
     const todayStr = nairobiDateString(0);
     const tomorrowStr = nairobiDateString(1);
 
-    const due = await Training.find({ trainingDate: { $in: [todayStr, tomorrowStr] } });
+    // Fixed to query the new snake_case 'training_date'
+    const due = await Training.find({ training_date: { $in: [todayStr, tomorrowStr] } });
 
     await Promise.all(
         due.map((t) => {
-            const isToday = t.trainingDate === todayStr;
+            const isToday = t.training_date === todayStr;
             const message = `${t.name} starts ${isToday ? 'today' : 'tomorrow'}${t.venue ? ` at ${t.venue}` : ''}`;
             return Notification.updateOne(
                 { type: 'training_starting', refId: t._id },

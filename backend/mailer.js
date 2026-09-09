@@ -17,14 +17,14 @@ function escapeHtml(str) {
         .replace(/'/g, '&#39;');
 }
 
-function whenLabel(trainingDate, trainingEndDate) {
-    return trainingEndDate && trainingEndDate !== trainingDate
-        ? `from ${trainingDate} to ${trainingEndDate}`
-        : `on ${trainingDate}`;
+function whenLabel(training_date, training_end_date) {
+    return training_end_date && training_end_date !== training_date
+        ? `from ${training_date} to ${training_end_date}`
+        : `on ${training_date}`;
 }
 
-async function sendNominationEmail({ to, nomineeName, trainingName, trainingDate, trainingEndDate, confirmUrl }) {
-    const when = whenLabel(trainingDate, trainingEndDate);
+async function sendNominationEmail({ to, nomineeName, trainingName, training_date, training_end_date, confirmUrl }) {
+    const when = whenLabel(training_date, training_end_date);
 
     await transporter.sendMail({
         from: `"HRCD Training Management" <${process.env.GMAIL_USER}>`,
@@ -46,8 +46,8 @@ async function sendNominationEmail({ to, nomineeName, trainingName, trainingDate
     });
 }
 
-async function sendAttendanceCheckEmail({ to, nomineeName, trainingName, trainingDate, trainingEndDate, confirmUrl }) {
-    const when = whenLabel(trainingDate, trainingEndDate);
+async function sendAttendanceCheckEmail({ to, nomineeName, trainingName, training_date, training_end_date, confirmUrl }) {
+    const when = whenLabel(training_date, training_end_date);
 
     await transporter.sendMail({
         from: `"HRCD Training Management" <${process.env.GMAIL_USER}>`,

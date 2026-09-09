@@ -8,6 +8,7 @@ const emptyForm = {
   name: '',
   category: CATEGORIES[0],
   training_date: '',
+  training_end_date: '',
   venue: '',
   cost: 0,
   per_diem: false,
@@ -23,6 +24,7 @@ function toFormState(training) {
     name: training.name,
     category: training.category,
     training_date: training.training_date,
+    training_end_date: training.training_end_date || '',
     venue: training.venue || '',
     cost: training.cost,
     per_diem: training.per_diem,
@@ -54,6 +56,12 @@ export default function TrainingFormModal({ show, onClose, onSave, training }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    // Validate that the end date isn't accidentally set before the start date
+    if (form.training_end_date && form.training_end_date < form.training_date) {
+      setError('End date cannot be before the start date.');
+      return;
+    }
+
     setSaving(true);
     setError('');
 
@@ -62,6 +70,10 @@ export default function TrainingFormModal({ show, onClose, onSave, training }) {
       fd.append('name', form.name);
       fd.append('category', form.category);
       fd.append('training_date', form.training_date);
+
+      // Only append the end date if the user actually selected one
+      fd.append('training_end_date', form.training_end_date || '');
+
       fd.append('venue', form.venue);
       fd.append('cost', String(parseFloat(form.cost) || 0));
       if (form.per_diem) fd.append('per_diem', 'true');
@@ -123,14 +135,33 @@ export default function TrainingFormModal({ show, onClose, onSave, training }) {
           </select>
         </div>
 
-        <div className="sm:col-span-6">
-          <label className="form-label">Training Date *</label>
+        <div className="sm:col-span-3">
+          <label className="form-label">Start Date *</label>
           <input
             type="date"
             className="form-input"
             required
             value={form.training_date}
-            onChange={(e) => setForm({ ...form, training_date: e.target.value })}
+            onChange={(e) => {
+              const start = e.target.value;
+              setForm((f) => ({
+                ...f,
+                training_date: start,
+                // Automatically clear the end date if it is earlier than the newly selected start date
+                training_end_date: f.training_end_date && start && f.training_end_date < start ? '' : f.training_end_date,
+              }));
+            }}
+          />
+        </div>
+
+        <div className="sm:col-span-3">
+          <label className="form-label">End Date</label>
+          <input
+            type="date"
+            className="form-input"
+            value={form.training_end_date}
+            min={form.training_date} // Prevents user from selecting an end date before the start date
+            onChange={(e) => setForm({ ...form, training_end_date: e.target.value })}
           />
         </div>
 

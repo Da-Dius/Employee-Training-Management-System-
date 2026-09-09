@@ -12,10 +12,9 @@ function escapeRegex(str) {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-// GET /api/reports/monthly?month=2026-07&category=Technical&department=Finance&name=digital
 async function buildMonthlyReport({ month, category, department, name } = {}) {
   const match = {};
-  if (month) match.trainingDate = { $regex: `^${escapeRegex(month)}` };
+  if (month) match.training_date = { $regex: `^${escapeRegex(month)}` };
   if (category) match.category = category;
   if (name) match.name = { $regex: escapeRegex(name), $options: 'i' };
 
@@ -40,22 +39,12 @@ async function buildMonthlyReport({ month, category, department, name } = {}) {
   pipeline.push(
     {
       $addFields: {
-        // Declined nominees keep their row for audit but are excluded from every count
-        // and from the attendance-rate denominator. The exclusion has to be applied to
-        // attendee_count and absentee_count too, not just nominee_count: these are three
-        // independent filters rather than complements, so excluding only the denominator
-        // would let absentee_count exceed nominee_count and drive the Pending segment of
-        // the activity chart negative.
-        //
-        // `$ne` and not `$in`: nominees created before nominationStatus existed have no
-        // such key, and an aggregation reads raw BSON rather than applying the schema
-        // default. $ne matches a missing path; $in would zero out every legacy record.
         nominee_count: {
           $size: {
             $filter: {
               input: '$nominees',
               as: 'n',
-              cond: { $ne: ['$$n.nominationStatus', 'Declined'] },
+              cond: { $ne: ['$$n.nomination_status', 'Declined'] },
             },
           },
         },
@@ -66,8 +55,8 @@ async function buildMonthlyReport({ month, category, department, name } = {}) {
               as: 'n',
               cond: {
                 $and: [
-                  { $ne: ['$$n.nominationStatus', 'Declined'] },
-                  { $eq: ['$$n.attendanceStatus', 'Attended'] },
+                  { $ne: ['$$n.nomination_status', 'Declined'] },
+                  { $eq: ['$$n.attendance_status', 'Attended'] },
                 ],
               },
             },
@@ -80,8 +69,8 @@ async function buildMonthlyReport({ month, category, department, name } = {}) {
               as: 'n',
               cond: {
                 $and: [
-                  { $ne: ['$$n.nominationStatus', 'Declined'] },
-                  { $eq: ['$$n.attendanceStatus', 'Did Not Attend'] },
+                  { $ne: ['$$n.nomination_status', 'Declined'] },
+                  { $eq: ['$$n.attendance_status', 'Did Not Attend'] },
                 ],
               },
             },
@@ -92,13 +81,13 @@ async function buildMonthlyReport({ month, category, department, name } = {}) {
             $filter: {
               input: '$nominees',
               as: 'n',
-              cond: { $eq: ['$$n.nominationStatus', 'Declined'] },
+              cond: { $eq: ['$$n.nomination_status', 'Declined'] },
             },
           },
         },
       },
     },
-    { $sort: { trainingDate: -1 } }
+    { $sort: { training_date: -1 } }
   );
 
   const rows = await Training.aggregate(pipeline);
@@ -107,7 +96,7 @@ async function buildMonthlyReport({ month, category, department, name } = {}) {
     id: r._id,
     name: r.name,
     category: r.category,
-    training_date: r.trainingDate,
+    training_date: r.training_date,
     venue: r.venue,
     nominee_count: r.nominee_count,
     attendee_count: r.attendee_count,
@@ -115,14 +104,13 @@ async function buildMonthlyReport({ month, category, department, name } = {}) {
     declined_count: r.declined_count,
     cost: r.cost,
     paid: !!r.paid,
-    per_diem: !!r.perDiem,
+    per_diem: !!r.per_diem,
   }));
 }
 
-// One row per nominee, not per training — for people who need names, not just counts.
 async function buildAttendeeReport({ month, category, department, name } = {}) {
   const trainingMatch = {};
-  if (month) trainingMatch.trainingDate = { $regex: `^${escapeRegex(month)}` };
+  if (month) trainingMatch.training_date = { $regex: `^${escapeRegex(month)}` };
   if (category) trainingMatch.category = category;
   if (name) trainingMatch.name = { $regex: escapeRegex(name), $options: 'i' };
 
@@ -145,37 +133,30 @@ async function buildAttendeeReport({ month, category, department, name } = {}) {
     });
   }
 
-  pipeline.push({ $sort: { trainingDate: -1, 'nominees.name': 1 } });
+  pipeline.push({ $sort: { training_date: -1, 'nominees.name': 1 } });
 
   const rows = await Training.aggregate(pipeline);
 
   return rows.map((r) => ({
     training_name: r.name,
-    training_date: r.trainingDate,
+    training_date: r.training_date,
     category: r.category,
     employee_name: r.nominees.name,
-    employee_number: r.nominees.employeeNumber,
+    employee_number: r.nominees.employee_number,
     department: r.nominees.department,
     division: r.nominees.division,
     section: r.nominees.section,
-    station_region: r.nominees.stationRegion,
-    // Declined rows are deliberately NOT filtered out of this report — it's the
-    // per-person audit list, and the nomination_status column is what tells the reader
-    // they don't count toward the totals in the monthly report.
-    nomination_status: r.nominees.nominationStatus || 'Pending',
-    decline_reason: r.nominees.declineReason || null,
-    attendance_status: r.nominees.attendanceStatus,
-    attendance_self_reported: !!r.nominees.attendanceSelfReported,
+    station_region: r.nominees.station_region,
+    nomination_status: r.nominees.nomination_status || 'Pending',
+    decline_reason: r.nominees.decline_reason || null,
+    attendance_status: r.nominees.attendance_status,
+    attendance_self_reported: !!r.nominees.attendance_self_reported,
   }));
 }
 
-// Department-level breakdown — nominee_count and attendee_count per department, so the
-// frontend can compute both participation (who's sending people) and no-show rate
-// (who's sending people who then don't show) in one call. Deliberately ignores the
-// `department` filter itself, since this endpoint's whole purpose is the breakdown.
 async function buildDepartmentStats({ month, category, name } = {}) {
   const trainingMatch = {};
-  if (month) trainingMatch.trainingDate = { $regex: `^${escapeRegex(month)}` };
+  if (month) trainingMatch.training_date = { $regex: `^${escapeRegex(month)}` };
   if (category) trainingMatch.category = category;
   if (name) trainingMatch.name = { $regex: escapeRegex(name), $options: 'i' };
 
@@ -193,20 +174,16 @@ async function buildDepartmentStats({ month, category, name } = {}) {
     {
       $group: {
         _id: { $ifNull: ['$nominees.department', 'Unspecified'] },
-        // Same Declined exclusion as buildMonthlyReport, for the same reason. This does
-        // shift what the no-show rate means — from "nominated and didn't show" to
-        // "committed (or stayed silent) and didn't show" — which is the more useful
-        // number, and needs no frontend change.
         nominee_count: {
-          $sum: { $cond: [{ $ne: ['$nominees.nominationStatus', 'Declined'] }, 1, 0] },
+          $sum: { $cond: [{ $ne: ['$nominees.nomination_status', 'Declined'] }, 1, 0] },
         },
         attendee_count: {
           $sum: {
             $cond: [
               {
                 $and: [
-                  { $ne: ['$nominees.nominationStatus', 'Declined'] },
-                  { $eq: ['$nominees.attendanceStatus', 'Attended'] },
+                  { $ne: ['$nominees.nomination_status', 'Declined'] },
+                  { $eq: ['$nominees.attendance_status', 'Attended'] },
                 ],
               },
               1,
@@ -215,7 +192,7 @@ async function buildDepartmentStats({ month, category, name } = {}) {
           },
         },
         declined_count: {
-          $sum: { $cond: [{ $eq: ['$nominees.nominationStatus', 'Declined'] }, 1, 0] },
+          $sum: { $cond: [{ $eq: ['$nominees.nomination_status', 'Declined'] }, 1, 0] },
         },
       },
     },

@@ -3,6 +3,7 @@ const BASE = '/api';
 async function request(url, options = {}) {
   const res = await fetch(url, options);
 
+  // Global 401 Interceptor: Kicks expired sessions back to login
   if (res.status === 401 && url !== `${BASE}/auth/me`) {
     window.location.href = '/login';
     return new Promise(() => { });
@@ -49,18 +50,14 @@ export const listTrainings = (params = {}) => {
 };
 export const getTraining = (id) => request(`${BASE}/trainings/${id}`);
 
-export const createTraining = async (formData) => {
-  const res = await fetch(`${BASE}/trainings`, { method: 'POST', body: formData });
-  const body = await res.json();
-  if (!res.ok) throw new Error(body.error || 'Request failed');
-  return body;
-};
-export const updateTraining = async (id, formData) => {
-  const res = await fetch(`${BASE}/trainings/${id}`, { method: 'PUT', body: formData });
-  const body = await res.json();
-  if (!res.ok) throw new Error(body.error || 'Request failed');
-  return body;
-};
+// Unified to use request() so the 401 interceptor fires
+export const createTraining = (formData) =>
+  request(`${BASE}/trainings`, { method: 'POST', body: formData });
+
+// Unified to use request()
+export const updateTraining = (id, formData) =>
+  request(`${BASE}/trainings/${id}`, { method: 'PUT', body: formData });
+
 export const deleteTraining = (id) => request(`${BASE}/trainings/${id}`, { method: 'DELETE' });
 
 export const listNominees = (trainingId) => request(`${BASE}/trainings/${trainingId}/nominees`);
@@ -73,38 +70,32 @@ export const setAttendance = (trainingId, nomineeId, attendance_status) =>
   });
 export const deleteNominee = (trainingId, nomineeId) =>
   request(`${BASE}/trainings/${trainingId}/nominees/${nomineeId}`, { method: 'DELETE' });
-// Adds a replacement for a nominee who declined. The decliner is not deleted — they stay
-// on the list as the record of who dropped out.
 export const replaceNominee = (trainingId, nomineeId, data) =>
   request(`${BASE}/trainings/${trainingId}/nominees/${nomineeId}/replace`, {
     method: 'POST',
     ...jsonBody(data),
   });
-// One bulk call rather than a fan-out: each recipient is an SMTP send, and the response
-// reports per-recipient { sent, skipped } so nothing fails silently.
 export const requestAttendanceConfirmations = (trainingId) =>
   request(`${BASE}/trainings/${trainingId}/nominees/request-attendance-confirmation`, {
     method: 'POST',
   });
 
-export const importNominees = async (trainingId, file) => {
+// Unified to use request()
+export const importNominees = (trainingId, file) => {
   const form = new FormData();
   form.append('file', file);
-  const res = await fetch(`${BASE}/trainings/${trainingId}/nominees/import`, { method: 'POST', body: form });
-  const body = await res.json();
-  if (!res.ok) throw new Error(body.error || 'Import failed');
-  return body;
+  return request(`${BASE}/trainings/${trainingId}/nominees/import`, { method: 'POST', body: form });
 };
 
 export const listEvidence = (trainingId) => request(`${BASE}/trainings/${trainingId}/evidence`);
-export const uploadEvidence = async (trainingId, files) => {
+
+// Unified to use request()
+export const uploadEvidence = (trainingId, files) => {
   const form = new FormData();
   Array.from(files).forEach((f) => form.append('files', f));
-  const res = await fetch(`${BASE}/trainings/${trainingId}/evidence`, { method: 'POST', body: form });
-  const body = await res.json();
-  if (!res.ok) throw new Error(body.error || 'Upload failed');
-  return body;
+  return request(`${BASE}/trainings/${trainingId}/evidence`, { method: 'POST', body: form });
 };
+
 export const deleteEvidence = (trainingId, evidenceId) =>
   request(`${BASE}/trainings/${trainingId}/evidence/${evidenceId}`, { method: 'DELETE' });
 export const evidenceDownloadUrl = (trainingId, evidenceId) =>
