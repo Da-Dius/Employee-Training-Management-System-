@@ -13,8 +13,6 @@ const empty = {
   station_region: '',
 };
 
-// Every new prop is defaulted, so the plain "Add Nominee" call site works unchanged and
-// the replacement picker is the same component with different labels.
 export default function NomineeFormModal({
   show,
   onClose,
@@ -76,14 +74,15 @@ export default function NomineeFormModal({
   const handleEmployeeSelect = (employee) => {
     setSelectedEmployee(employee);
 
+    // Fixed the camelCase mismatch to align with your MongoDB backend
     setForm({
       name: employee.name || '',
-      employee_number: employee.employeeNumber || '',
+      employee_number: employee.employee_number || '',
       email: employee.email || '',
       department: employee.department || '',
       division: employee.division || '',
       section: employee.section || '',
-      station_region: employee.stationRegion || '',
+      station_region: employee.station_region || '',
     });
 
     setEmployeeSearch(employee.name || '');
@@ -106,8 +105,6 @@ export default function NomineeFormModal({
       return;
     }
 
-    // The greyed-out results below are a convenience; this and the server-side check are
-    // what actually guarantee it.
     if (excluded.has(form.employee_number)) {
       setError('That employee is already a nominee on this training.');
       return;
@@ -133,9 +130,6 @@ export default function NomineeFormModal({
 
   if (!show) return null;
 
-  // Derived at render time, deliberately NOT inside the debounced fetch effect above:
-  // the parent passes a fresh array literal on every render, so putting it anywhere in
-  // that effect's dependencies would spin it into a refetch loop.
   const excluded = new Set(excludeEmployeeNumbers);
 
   return (
@@ -184,7 +178,7 @@ export default function NomineeFormModal({
 
           <div className="relative">
             <Search
-              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400"
               strokeWidth={2}
             />
 
@@ -208,7 +202,7 @@ export default function NomineeFormModal({
             {employeeSearch && (
               <button
                 type="button"
-                className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-600"
                 onClick={clearEmployee}
                 title="Clear employee"
               >
@@ -217,62 +211,56 @@ export default function NomineeFormModal({
             )}
           </div>
 
-          {/* Search Results */}
+          {/* Search Results - Upgraded to use your .card styling */}
           {showEmployeeResults && (
-            <div className="absolute z-50 mt-1 max-h-60 w-full overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-lg">
+            <div className="card absolute z-50 mt-1 max-h-60 w-full overflow-y-auto">
               {searchingEmployees && (
-                <div className="px-4 py-3 text-sm text-slate-500">
+                <div className="px-4 py-3 text-sm text-zinc-500">
                   Searching employees...
                 </div>
               )}
 
               {!searchingEmployees && employees.length === 0 && (
-                <div className="px-4 py-3 text-sm text-slate-500">
+                <div className="px-4 py-3 text-sm text-zinc-500">
                   No employees found.
                 </div>
               )}
 
-              {/* Already-nominated people stay visible but unselectable rather than
-                  being filtered out: silently vanishing from a directory search reads
-                  as a broken search, not as an explanation. */}
               {!searchingEmployees &&
                 employees.map((employee) => {
-                  const already = excluded.has(employee.employeeNumber);
+                  const already = excluded.has(employee.employee_number);
                   return (
                     <button
                       key={employee._id}
                       type="button"
                       disabled={already}
-                      className={`flex w-full items-start gap-3 border-b border-slate-100 px-4 py-3 text-left last:border-b-0 ${
-                        already ? 'cursor-not-allowed opacity-50' : 'hover:bg-slate-50'
-                      }`}
+                      className={`flex w-full items-start gap-3 border-b border-zinc-100 px-4 py-3 text-left transition-colors last:border-b-0 ${already ? 'cursor-not-allowed opacity-50' : 'hover:bg-zinc-50'
+                        }`}
                       onClick={() => !already && handleEmployeeSelect(employee)}
                     >
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-600">
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-zinc-500">
                         <UserRound className="h-4 w-4" strokeWidth={2} />
                       </span>
 
                       <span className="min-w-0">
-                        <span className="block truncate text-sm font-medium text-slate-900">
+                        <span className="block truncate text-sm font-medium text-zinc-900">
                           {employee.name}
                         </span>
 
-                        <span className="block text-xs text-slate-500">
-                          {employee.employeeNumber}
-                          {employee.department
-                            ? ` • ${employee.department}`
-                            : ''}
+                        <span className="block text-xs text-zinc-500">
+                          {employee.employee_number}
+                          {employee.department ? ` • ${employee.department}` : ''}
                         </span>
 
                         {employee.email && (
-                          <span className="block truncate text-xs text-slate-400">
+                          <span className="block truncate text-xs text-zinc-400">
                             {employee.email}
                           </span>
                         )}
                       </span>
 
                       {already && (
-                        <span className="ml-auto shrink-0 text-[11px] text-slate-400">
+                        <span className="ml-auto shrink-0 text-[11px] text-zinc-400">
                           Already a nominee
                         </span>
                       )}
@@ -298,107 +286,80 @@ export default function NomineeFormModal({
                 </div>
 
                 <div className="text-xs text-emerald-700">
-                  {selectedEmployee.name} — {selectedEmployee.employeeNumber}
+                  {selectedEmployee.name} — {selectedEmployee.employee_number}
                 </div>
               </div>
             </div>
           </div>
         )}
 
-        {/* Name */}
+        {/* Read-Only Fields */}
         <div className="sm:col-span-2">
-          <label className="form-label">
-            Name
-          </label>
-
+          <label className="form-label">Name</label>
           <input
             type="text"
-            className="form-input bg-slate-50"
+            className="form-input cursor-not-allowed bg-zinc-50 text-zinc-500"
             value={form.name}
             readOnly
           />
         </div>
 
-        {/* Employee Number */}
         <div>
-          <label className="form-label">
-            Employee Number
-          </label>
-
+          <label className="form-label">Employee Number</label>
           <input
             type="text"
-            className="form-input bg-slate-50"
+            className="form-input cursor-not-allowed bg-zinc-50 text-zinc-500"
             value={form.employee_number}
             readOnly
           />
         </div>
 
-        {/* Work Email */}
         <div>
-          <label className="form-label">
-            Work Email
-          </label>
-
+          <label className="form-label">Work Email</label>
           <input
             type="email"
-            className="form-input bg-slate-50"
+            className="form-input cursor-not-allowed bg-zinc-50 text-zinc-500"
             placeholder="For attendance confirmation"
             value={form.email}
             readOnly
           />
         </div>
 
-        {/* Department */}
         <div>
-          <label className="form-label">
-            Department
-          </label>
-
+          <label className="form-label">Department</label>
           <input
             type="text"
-            className="form-input bg-slate-50"
+            className="form-input cursor-not-allowed bg-zinc-50 text-zinc-500"
             value={form.department}
             readOnly
           />
         </div>
 
-        {/* Division */}
         <div>
-          <label className="form-label">
-            Division
-          </label>
-
+          <label className="form-label">Division</label>
           <input
             type="text"
-            className="form-input bg-slate-50"
+            className="form-input cursor-not-allowed bg-zinc-50 text-zinc-500"
             value={form.division}
             readOnly
           />
         </div>
 
-        {/* Section */}
         <div>
-          <label className="form-label">
-            Section
-          </label>
-
+          <label className="form-label">Section</label>
           <input
             type="text"
-            className="form-input bg-slate-50"
+            className="form-input cursor-not-allowed bg-zinc-50 text-zinc-500"
             value={form.section}
             readOnly
           />
         </div>
 
-        {/* Station / Region */}
         <div>
-          <label className="form-label">
-            Station/Region
-          </label>
-
+          <label className="form-label">Station / Region</label>
           <input
             type="text"
-            className="form-input bg-slate-50"
+            className="form-input cursor-not-allowed bg-zinc-50 text-zinc-500"
             value={form.station_region}
             readOnly
           />

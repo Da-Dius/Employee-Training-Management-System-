@@ -19,42 +19,68 @@ import { subscribeNotificationRefresh } from '../notificationBus';
 const NAV_ITEMS = [
   { to: '/dashboard', label: 'Dashboard', Icon: LayoutDashboard },
   { to: '/trainings', label: 'Trainings', Icon: BookText },
+  { to: '/employees', label: 'Employees', Icon: Users },
   { to: '/reports', label: 'Reports', Icon: FileBarChart2 },
   { to: '/users', label: 'HR Users', Icon: Users },
 ];
 
 function initials(name) {
   if (!name) return '?';
-  return name
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((p) => p[0]?.toUpperCase())
-    .join('');
+  const cleanName = name.trim();
+  const parts = cleanName.split(/\s+/);
+
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[1][0]).toUpperCase();
+  }
+
+  return cleanName.substring(0, 2).toUpperCase();
 }
 
 export default function NavBar() {
   const { user, logout } = useAuth();
   const visibleNavItems = NAV_ITEMS.filter((item) => item.to !== '/users' || user?.role === 'admin');
   const navigate = useNavigate();
+
   const [mobileOpen, setMobileOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [notifications, setNotifications] = useState([]);
+
   const menuRef = useRef(null);
   const notifRef = useRef(null);
 
-  const loadNotifications = () => {
-    api.listNotifications().then(setNotifications).catch(() => { });
-  };
-
   useEffect(() => {
-    loadNotifications();
-    const interval = setInterval(loadNotifications, 60000);
-    const unsubscribe = subscribeNotificationRefresh(loadNotifications);
+    let timeoutId;
+    let isMounted = true;
+
+    const pollNotifications = async () => {
+      try {
+        const data = await api.listNotifications();
+        if (isMounted) setNotifications(data);
+      } catch (err) {
+        // silently fail on background fetches
+      } finally {
+        if (isMounted) {
+          timeoutId = setTimeout(pollNotifications, 60000);
+        }
+      }
+    };
+
+    pollNotifications();
+
+    const unsubscribe = subscribeNotificationRefresh(async () => {
+      try {
+        const data = await api.listNotifications();
+        if (isMounted) setNotifications(data);
+      } catch (err) {
+        // silently fail
+      }
+    });
+
     return () => {
-      clearInterval(interval);
+      isMounted = false;
+      clearTimeout(timeoutId);
       unsubscribe();
     };
   }, []);
@@ -65,7 +91,7 @@ export default function NavBar() {
       try {
         await api.markNotificationRead(n.id);
       } catch {
-        // non-critical — the list will self-correct on next poll
+        // non-critical
       }
     }
     if (n.link) navigate(n.link);
@@ -123,16 +149,12 @@ export default function NavBar() {
 
   return (
     <header
-      className={`sticky top-0 z-40 border-b bg-[#0A0A0A] transition-shadow duration-200 ${scrolled ? 'border-zinc-800 shadow-lg shadow-black/10' : 'border-zinc-800/60'
+      className={`sticky top-0 z-40 border-b bg-zinc-900 transition-shadow duration-200 ${scrolled ? 'border-zinc-800 shadow-lg shadow-black/10' : 'border-zinc-800/60'
         }`}
     >
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
-        {/* Logo lockup */}
         <NavLink to="/dashboard" className="flex items-center gap-2.5">
-          <span
-            className="flex h-9 w-9 items-center justify-center rounded-xl text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.25)] ring-1 ring-black/20"
-            style={{ background: 'linear-gradient(135deg, #ff0613, #930f00)' }}
-          >
+          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-brand to-[#930f00] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.25)] ring-1 ring-black/20">
             <GraduationCap className="h-[18px] w-[18px]" strokeWidth={2.25} />
           </span>
           <span className="hidden leading-tight sm:flex sm:flex-col">
@@ -143,18 +165,20 @@ export default function NavBar() {
           </span>
         </NavLink>
 
-        {/* Desktop nav — active item gets a red underline */}
-        <nav className="hidden items-center gap-1 md:flex">
+        <nav className="hidden items-center gap-6 md:flex">
           {visibleNavItems.map(({ to, label, Icon }) => (
             <NavLink key={to} to={to} className={desktopLinkClass}>
               {({ isActive }) => (
                 <>
-                  <Icon className="h-4 w-4" strokeWidth={2} />
+                  <Icon
+                    className={`h-4 w-4 transition-colors ${isActive ? 'text-brand' : 'text-zinc-400 group-hover:text-zinc-300'
+                      }`}
+                    strokeWidth={isActive ? 2.5 : 2}
+                  />
                   {label}
                   <span
-                    className={`absolute inset-x-3 -bottom-[1px] h-0.5 rounded-full transition-transform duration-200 ${isActive ? 'scale-x-100' : 'scale-x-0 group-hover:scale-x-40'
+                    className={`absolute inset-x-3 -bottom-[1px] h-0.5 rounded-full bg-brand transition-transform duration-200 ${isActive ? 'scale-x-100' : 'scale-x-0 group-hover:scale-x-40'
                       }`}
-                    style={{ backgroundColor: '#ff0613' }}
                   />
                 </>
               )}
@@ -163,7 +187,6 @@ export default function NavBar() {
         </nav>
 
         <div className="flex items-center gap-1.5">
-          {/* Notifications */}
           <div className="relative" ref={notifRef}>
             <button
               type="button"
@@ -175,18 +198,21 @@ export default function NavBar() {
             >
               <Bell className="h-[18px] w-[18px]" strokeWidth={2} />
               {unreadCount > 0 && (
-                <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-red-500 ring-2 ring-[#0A0A0A]" />
+                <span className="absolute top-1.5 right-1.5 flex h-2 w-2">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand opacity-75"></span>
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-brand ring-2 ring-zinc-900"></span>
+                </span>
               )}
             </button>
             <div
               role="menu"
-              className={`absolute right-0 mt-2 w-72 origin-top-right overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-xl transition-all duration-150 ${notifOpen ? 'scale-100 opacity-100' : 'pointer-events-none scale-95 opacity-0'
+              className={`card absolute right-0 mt-2 w-72 origin-top-right overflow-hidden transition-all duration-200 ease-out ${notifOpen ? 'translate-y-0 scale-100 opacity-100' : 'pointer-events-none -translate-y-2 scale-95 opacity-0'
                 }`}
             >
               <div className="flex items-center justify-between border-b border-zinc-100 px-4 py-3">
                 <div className="text-sm font-semibold text-zinc-900">Notifications</div>
                 {unreadCount > 0 && (
-                  <button onClick={handleMarkAllRead} className="text-xs font-medium text-[#ff0613] hover:underline">
+                  <button onClick={handleMarkAllRead} className="text-xs font-medium text-brand hover:underline">
                     Mark all read
                   </button>
                 )}
@@ -202,7 +228,7 @@ export default function NavBar() {
                         className={`flex w-full items-start gap-2 px-4 py-3 text-left text-sm hover:bg-zinc-50 ${n.read ? 'text-zinc-500' : 'text-zinc-800'
                           }`}
                       >
-                        {!n.read && <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#ff0613]" />}
+                        {!n.read && <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-brand" />}
                         <span className={n.read ? '' : 'font-medium'}>{n.message}</span>
                       </button>
                     </li>
@@ -212,7 +238,6 @@ export default function NavBar() {
             </div>
           </div>
 
-          {/* Account menu */}
           <div className="relative hidden md:block" ref={menuRef}>
             <button
               type="button"
@@ -221,10 +246,7 @@ export default function NavBar() {
               aria-expanded={menuOpen}
               className="flex items-center gap-2 rounded-lg py-1.5 pr-2 pl-1.5 text-sm font-medium text-zinc-200 transition-colors hover:bg-zinc-800"
             >
-              <span
-                className="flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold text-white"
-                style={{ backgroundColor: '#ff0613' }}
-              >
+              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-brand text-xs font-semibold text-white">
                 {initials(user?.name)}
               </span>
               <span className="max-w-[9rem] truncate">{user?.name || 'Account'}</span>
@@ -232,14 +254,11 @@ export default function NavBar() {
             </button>
             <div
               role="menu"
-              className={`absolute right-0 mt-2 w-64 origin-top-right overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-xl transition-all duration-150 ${menuOpen ? 'scale-100 opacity-100' : 'pointer-events-none scale-95 opacity-0'
+              className={`card absolute right-0 mt-2 w-64 origin-top-right overflow-hidden transition-all duration-200 ease-out ${menuOpen ? 'translate-y-0 scale-100 opacity-100' : 'pointer-events-none -translate-y-2 scale-95 opacity-0'
                 }`}
             >
               <div className="flex items-center gap-3 px-4 py-4">
-                <span
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white"
-                  style={{ backgroundColor: '#ff0613' }}
-                >
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand text-sm font-semibold text-white">
                   {initials(user?.name)}
                 </span>
                 <div className="min-w-0">
@@ -259,7 +278,6 @@ export default function NavBar() {
             </div>
           </div>
 
-          {/* Mobile toggle */}
           <button
             type="button"
             aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
@@ -272,17 +290,13 @@ export default function NavBar() {
         </div>
       </div>
 
-      {/* Mobile panel */}
       <div
         className={`grid overflow-hidden border-t border-zinc-800 transition-[grid-template-rows,opacity] duration-200 ease-out md:hidden ${mobileOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
           }`}
       >
-        <div className="min-h-0 bg-[#0A0A0A]">
+        <div className="min-h-0 bg-zinc-900">
           <div className="flex items-center gap-3 px-4 py-3">
-            <span
-              className="flex h-9 w-9 items-center justify-center rounded-full text-sm font-semibold text-white"
-              style={{ backgroundColor: '#ff0613' }}
-            >
+            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-brand text-sm font-semibold text-white">
               {initials(user?.name)}
             </span>
             <div className="min-w-0">
@@ -293,8 +307,15 @@ export default function NavBar() {
           <nav className="flex flex-col gap-1 px-3 pb-2">
             {visibleNavItems.map(({ to, label, Icon }) => (
               <NavLink key={to} to={to} className={mobileLinkClass} onClick={() => setMobileOpen(false)}>
-                <Icon className="h-[18px] w-[18px]" strokeWidth={2} />
-                {label}
+                {({ isActive }) => (
+                  <>
+                    <Icon
+                      className={`h-[18px] w-[18px] ${isActive ? 'text-white' : ''}`}
+                      strokeWidth={isActive ? 2.5 : 2}
+                    />
+                    {label}
+                  </>
+                )}
               </NavLink>
             ))}
           </nav>

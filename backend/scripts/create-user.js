@@ -1,9 +1,3 @@
-// Bootstrap or add an HR staff login account.
-// Usage: node scripts/create-user.js <username> <password> <full name> [--admin]
-//
-// dotenv is loaded here, before db/database.js: that module reads MONGODB_URI at require
-// time and throws if it is missing, so the config has to be in place first. server.js
-// does the same thing for the same reason.
 require('dotenv').config({ quiet: true });
 
 const { mongoose, User, hashPassword } = require('../db/database');
@@ -11,8 +5,6 @@ const { mongoose, User, hashPassword } = require('../db/database');
 async function main() {
   const args = process.argv.slice(2);
 
-  // Pulled out before positional parsing so it can be passed anywhere on the line
-  // without being swallowed by the multi-word full name.
   const forceAdmin = args.includes('--admin');
   const [username, password, ...nameParts] = args.filter((a) => a !== '--admin');
   const name = nameParts.join(' ');
@@ -26,8 +18,6 @@ async function main() {
     process.exit(1);
   }
 
-  // db/database.js kicks off mongoose.connect() at require time and exits the process
-  // itself if it fails, so this only has to wait for it to land.
   await mongoose.connection.asPromise();
 
   const normalizedUsername = username.trim().toLowerCase();
@@ -38,9 +28,6 @@ async function main() {
     process.exit(1);
   }
 
-  // Mirrors the signup route in routes/auth.js: the very first account on the system
-  // becomes admin automatically, because otherwise nobody could ever manage HR users.
-  // After that, staff unless --admin is passed.
   const isFirstAccount = (await User.countDocuments()) === 0;
   const role = isFirstAccount || forceAdmin ? 'admin' : 'staff';
 
@@ -56,8 +43,7 @@ async function main() {
 }
 
 main().catch(async (err) => {
-  // A duplicate key here means someone created the same username between the check
-  // above and the insert — report it in the same terms rather than as a stack trace.
+
   if (err && err.code === 11000) {
     console.error('That username is already taken');
   } else {

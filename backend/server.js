@@ -54,12 +54,12 @@ async function main() {
     })
   );
 
-  // confirm.html — public employee self-confirmation page.
+  // confirm.html 
   app.use(express.static(path.join(__dirname, 'public')));
 
   app.use(express.static(frontendDist));
 
-  // Public routes: login itself, and the employee self-confirmation flow
+  // Public routes
   app.use('/api/auth', authRouter);
   app.use('/api/confirm', confirmRouter);
 

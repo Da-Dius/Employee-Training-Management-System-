@@ -53,13 +53,10 @@ export default function TrainingFormModal({ show, onClose, onSave, training }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (form.end_date && form.end_date < form.training_date) {
-      setError('End date cannot be before the training date.');
-      return;
-    }
 
     setSaving(true);
     setError('');
+
     try {
       const fd = new FormData();
       fd.append('name', form.name);
@@ -67,8 +64,6 @@ export default function TrainingFormModal({ show, onClose, onSave, training }) {
       fd.append('training_date', form.training_date);
       fd.append('venue', form.venue);
       fd.append('cost', String(parseFloat(form.cost) || 0));
-      // Only send per_diem when true — an absent field reads as false on the backend,
-      // same as how an unchecked HTML checkbox is simply omitted from a form submit.
       if (form.per_diem) fd.append('per_diem', 'true');
       fd.append('service_entry', form.service_entry);
       fd.append('trainer_name', form.trainer_name);
@@ -92,11 +87,11 @@ export default function TrainingFormModal({ show, onClose, onSave, training }) {
       size="lg"
       footer={
         <>
-          <button type="button" className="btn btn-outline" onClick={onClose}>
+          <button type="button" className="btn btn-outline" onClick={onClose} disabled={saving}>
             Cancel
           </button>
           <button type="submit" form="trainingForm" className="btn btn-primary" disabled={saving}>
-            {training ? 'Save Changes' : 'Create Training'}
+            {saving ? 'Saving...' : (training ? 'Save Changes' : 'Create Training')}
           </button>
         </>
       }
@@ -112,6 +107,7 @@ export default function TrainingFormModal({ show, onClose, onSave, training }) {
             onChange={(e) => setForm({ ...form, name: e.target.value })}
           />
         </div>
+
         <div className="sm:col-span-4">
           <label className="form-label">Category *</label>
           <select
@@ -134,19 +130,10 @@ export default function TrainingFormModal({ show, onClose, onSave, training }) {
             className="form-input"
             required
             value={form.training_date}
-            onChange={(e) => {
-              const start = e.target.value;
-              // Moving the start past an already-picked end would leave the end input
-              // holding a silently invalid value, so clear it and make the user re-pick.
-              setForm((f) => ({
-                ...f,
-                training_date: start,
-                training_end_date:
-                  f.training_end_date && start && f.training_end_date < start ? '' : f.training_end_date,
-              }));
-            }}
+            onChange={(e) => setForm({ ...form, training_date: e.target.value })}
           />
         </div>
+
         <div className="sm:col-span-6">
           <label className="form-label">Name of Trainer</label>
           <input
@@ -166,6 +153,7 @@ export default function TrainingFormModal({ show, onClose, onSave, training }) {
             onChange={(e) => setForm({ ...form, venue: e.target.value })}
           />
         </div>
+
         <div className="sm:col-span-3">
           <label className="form-label">Cost of Training</label>
           <input
@@ -177,6 +165,7 @@ export default function TrainingFormModal({ show, onClose, onSave, training }) {
             onChange={(e) => setForm({ ...form, cost: e.target.value })}
           />
         </div>
+
         <div className="sm:col-span-3">
           <label className="form-label">Service Entry</label>
           <select
@@ -199,29 +188,33 @@ export default function TrainingFormModal({ show, onClose, onSave, training }) {
             onChange={(e) => setForm({ ...form, lpo_number: e.target.value })}
           />
         </div>
+
         <div className="sm:col-span-5">
           <label className="form-label">LPO Attachment</label>
           <input
             ref={fileInputRef}
             type="file"
-            className="form-input file:mr-3 file:rounded-md file:border-0 file:bg-zinc-100 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-zinc-700"
+            className="form-input file:mr-3 file:rounded-md file:border-0 file:bg-zinc-200 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-zinc-700 hover:file:bg-zinc-300 file:transition-colors"
             accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.csv,.txt"
             onChange={(e) => setLpoFile(e.target.files?.[0] || null)}
           />
+
           {training?.lpo_attachment_name && !lpoFile && (
             <a
               href={api.trainingLpoAttachmentDownloadUrl(training.id)}
-              className="mt-1.5 inline-flex items-center gap-1 text-xs text-[#ff0613] hover:underline"
+              className="mt-1.5 inline-flex items-center gap-1 text-xs font-medium text-brand hover:underline"
             >
               <Paperclip className="h-3 w-3" strokeWidth={2} />
               {training.lpo_attachment_name}
               <Download className="h-3 w-3" strokeWidth={2} />
             </a>
           )}
+
           {training?.lpo_attachment_name && (
             <div className="form-hint">Choosing a new file replaces the current one.</div>
           )}
         </div>
+
         <div className="flex items-end pb-2 sm:col-span-3">
           <label className="flex items-center gap-2">
             <input
@@ -243,10 +236,13 @@ export default function TrainingFormModal({ show, onClose, onSave, training }) {
             rows="2"
             value={form.description}
             onChange={(e) => setForm({ ...form, description: e.target.value })}
-          ></textarea>
+          />
         </div>
+
         {error && (
-          <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 sm:col-span-12">{error}</div>
+          <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 sm:col-span-12">
+            {error}
+          </div>
         )}
       </form>
     </Modal>

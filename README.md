@@ -45,19 +45,6 @@ It's served by the backend directly, at the same path in both dev and production
 
 ### Environment variables (do this first)
 
-The backend reads its config from `backend/.env`, which is gitignored — so a fresh
-clone has no `.env` and the server exits immediately with
-`MONGODB_URI is not set`. Create it from the template:
-
-```bash
-cd backend
-cp .env.example .env
-```
-
-Then open `backend/.env` and set `MONGODB_URI` to your MongoDB connection string
-(Atlas: `mongodb+srv://<user>:<password>@<cluster>/<dbname>`). Everything else in
-that file is optional; see the comments there for what each variable does.
-
 ### Development (two terminals)
 
 ```bash

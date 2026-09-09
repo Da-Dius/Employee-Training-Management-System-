@@ -1,9 +1,5 @@
 const nodemailer = require('nodemailer');
 
-// Gmail SMTP via an App Password — nodemailer's 'gmail' service preset handles the
-// host/port/TLS details. If this ever moves to a real transactional provider (Resend,
-// Brevo, etc.) later, only this file changes — every caller just imports the send
-// function it needs and doesn't know or care how delivery actually happens.
 const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
@@ -12,8 +8,6 @@ const transporter = nodemailer.createTransport({
     },
 });
 
-// Training and nominee names are HR free text, so they can't go into an HTML body raw —
-// a name containing "<" would break the markup. The plain-text bodies need no escaping.
 function escapeHtml(str) {
     return String(str ?? '')
         .replace(/&/g, '&amp;')
@@ -23,16 +17,12 @@ function escapeHtml(str) {
         .replace(/'/g, '&#39;');
 }
 
-// One label for both bodies of both emails, so none of them has to branch on whether
-// this is a single-day training or a multi-day range.
 function whenLabel(trainingDate, trainingEndDate) {
     return trainingEndDate && trainingEndDate !== trainingDate
         ? `from ${trainingDate} to ${trainingEndDate}`
         : `on ${trainingDate}`;
 }
 
-// Step 1 — sent when HR nominates someone. Accepting is their commitment to attend;
-// declining tells HR to nominate someone in their place.
 async function sendNominationEmail({ to, nomineeName, trainingName, trainingDate, trainingEndDate, confirmUrl }) {
     const when = whenLabel(trainingDate, trainingEndDate);
 
@@ -56,8 +46,6 @@ async function sendNominationEmail({ to, nomineeName, trainingName, trainingDate
     });
 }
 
-// Step 2 — HR-triggered once the training has ended. Same token as the nomination link,
-// but the page asks a different question by then.
 async function sendAttendanceCheckEmail({ to, nomineeName, trainingName, trainingDate, trainingEndDate, confirmUrl }) {
     const when = whenLabel(trainingDate, trainingEndDate);
 

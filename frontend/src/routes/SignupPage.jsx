@@ -40,13 +40,15 @@ export default function SignupPage() {
   return (
     <div className="flex min-h-screen items-center bg-zinc-100 py-10">
       <div className="mx-auto w-full max-w-[440px] px-4">
+
         <div className="mb-6 text-center">
-          <span className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-[#F0142F] to-[#8C0018] text-white shadow-sm">
+          <span className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-brand to-[#930f00] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.25)] ring-1 ring-black/20">
             <GraduationCap className="h-6 w-6" strokeWidth={2.25} />
           </span>
           <h4 className="text-lg font-semibold text-zinc-900">HRCD Training Management</h4>
           <div className="text-sm text-zinc-500">Create your HR account</div>
         </div>
+
         <div className="card">
           <div className="card-body">
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -83,6 +85,7 @@ export default function SignupPage() {
                 />
                 <div className="form-hint">At least 8 characters.</div>
               </div>
+
               {statusLoaded && !requiresInviteCode ? (
                 <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-700">
                   You're creating the first HR account for this system — no invite code needed.
@@ -100,6 +103,7 @@ export default function SignupPage() {
                   />
                 </div>
               )}
+
               <button type="submit" className="btn btn-primary w-full">
                 Create Account
               </button>
@@ -107,11 +111,13 @@ export default function SignupPage() {
             {error && <div className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
           </div>
         </div>
+
         <div className="mt-4 text-center">
-          <Link to="/login" className="text-sm text-[#ff0613] hover:underline">
+          <Link to="/login" className="text-sm font-medium text-brand hover:underline">
             Already have an account? Sign in
           </Link>
         </div>
+
       </div>
     </div>
   );

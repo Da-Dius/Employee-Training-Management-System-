@@ -29,7 +29,6 @@ export default function TrainingsPage() {
 
   useEffect(() => {
     load(filters);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -68,7 +67,7 @@ export default function TrainingsPage() {
   return (
     <>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-xl font-semibold text-slate-900">Trainings</h1>
+        <h1 className="text-xl font-semibold text-zinc-900">Trainings</h1>
         <button className="btn btn-primary" onClick={() => setModalState({ show: true, training: null })}>
           <Plus className="h-4 w-4" strokeWidth={2} />New Training
         </button>
@@ -151,7 +150,7 @@ export default function TrainingsPage() {
               )}
               {!error && rows && rows.length === 0 && (
                 <tr>
-                  <td colSpan={9} className="py-8 text-center text-slate-400">
+                  <td colSpan={9} className="py-8 text-center text-zinc-400">
                     No trainings found.
                   </td>
                 </tr>
@@ -160,7 +159,7 @@ export default function TrainingsPage() {
                 rows &&
                 rows.map((t) => (
                   <tr key={t.id} className="clickable-row" onClick={() => navigate(`/trainings/${t.id}`)}>
-                    <td className="font-medium text-slate-900">{t.name}</td>
+                    <td className="font-medium text-zinc-900">{t.name}</td>
                     <td>{t.category}</td>
                     <td>{formatDate(t.training_date)}</td>
                     <td>{t.venue || '-'}</td>

@@ -124,7 +124,7 @@ export default function UsersPage() {
   return (
     <>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-xl font-semibold text-slate-900">HR Users</h1>
+        <h1 className="text-xl font-semibold text-zinc-900">HR Users</h1>
         {isAdmin && (
           <button className="btn btn-primary" onClick={() => setModalOpen(true)}>
             <UserPlus className="h-4 w-4" strokeWidth={2} />Add HR User
@@ -134,15 +134,15 @@ export default function UsersPage() {
 
       <div className="card mb-4">
         <div className="card-body">
-          <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-900">
+          <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold text-zinc-900">
             <Ticket className="h-4 w-4" strokeWidth={2} />Self-Service Invite Code
           </h2>
-          <p className="mb-4 text-sm text-slate-500">
+          <p className="mb-4 text-sm text-zinc-500">
             Share this code with colleagues along with the sign-in page link (<code>/signup</code>) so they can create
             their own HR account instead of you sharing a password.
           </p>
           <div className="flex flex-wrap items-center gap-2">
-            <code className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-lg font-semibold tracking-wide text-slate-800">
+            <code className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-lg font-semibold tracking-wide text-zinc-800">
               {inviteCode}
             </code>
             <button className="btn btn-outline btn-sm" onClick={handleCopyInvite}>
@@ -188,7 +188,7 @@ export default function UsersPage() {
                 users &&
                 users.map((u) => (
                   <tr key={u.id}>
-                    <td className="font-medium text-slate-900">{u.name}</td>
+                    <td className="font-medium text-zinc-900">{u.name}</td>
                     <td>{u.username}</td>
                     <td>
                       {u.role === 'admin' ? (
@@ -307,7 +307,7 @@ export default function UsersPage() {
         }
       >
         <form id="resetForm" onSubmit={handleResetSubmit} className="space-y-4">
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-zinc-500">
             This immediately replaces their current password. Share the new one with them directly.
           </p>
           <div>

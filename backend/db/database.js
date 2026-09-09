@@ -36,9 +36,6 @@ const trainingSchema = new Schema({
   trainingEndDate: String,
   venue: String,
   cost: { type: Number, required: true, default: 0 },
-  // Kept temporarily alongside serviceEntry below while TrainingsPage/TrainingDetailPage/
-  // ReportsPage still read `paid` directly — remove once those are migrated in one pass
-  // so the app never has a half-updated field mid-deploy.
   paid: { type: Boolean, default: false },
   perDiem: { type: Boolean, default: false },
   description: String,
@@ -47,13 +44,8 @@ const trainingSchema = new Schema({
   endDate: String, // optional — multi-day trainings only
   trainerName: String,
   lpoNumber: String,
-  // LPO supporting document (receipt / purchase order proof) — same filename/originalName
-  // pattern as the Evidence model, so it reuses the existing uploads directory and
-  // download convention rather than inventing a second storage scheme.
   lpoAttachmentFilename: String,
   lpoAttachmentOriginalName: String,
-  // Replaces the old blunt "Paid Training" checkbox with a purposeful status tied to
-  // the actual procurement workflow (LPO raised -> payment confirmed).
   serviceEntry: { type: String, enum: ['Paid', 'Not Paid'], default: 'Not Paid' },
 }, { timestamps: true });
 
@@ -67,26 +59,13 @@ const nomineeSchema = new Schema({
   stationRegion: String,
   email: String,
 
-  // --- Step 1: the nomination itself. Accepting IS the commitment to attend; it says
-  // nothing about whether they actually turned up (that's attendanceStatus below).
   nominationStatus: { type: String, enum: ['Pending', 'Accepted', 'Declined'], default: 'Pending' },
-  // There is no updatedAt on this schema (see the options below), so each response
-  // needs its own explicit stamp rather than leaning on a shared one.
   nominationRespondedAt: Date,
   declineReason: String,
 
-  // --- Replacement chain. A decliner keeps their row as the audit trail and points
-  // forward; the replacement is a new row pointing back. Both directions are stored so
-  // neither side needs a query to render its label.
   replacedBy: { type: Schema.Types.ObjectId, ref: 'Nominee' },
   replacesNominee: { type: Schema.Types.ObjectId, ref: 'Nominee' },
 
-  // --- Step 2: did they actually attend? Only written once the training has ended,
-  // either by HR on the attendance register or by the employee answering the follow-up.
-  // NOTE: this replaced the old `employeeConfirmed` boolean, which conflated "accepted
-  // the nomination" with "attended". Documents created before that split still carry a
-  // physical employeeConfirmed key; Mongoose ignores it and it is never unset, so expect
-  // to see it lingering in Compass.
   attendanceStatus: { type: String, enum: ['Pending', 'Attended', 'Did Not Attend'], default: 'Pending' },
   attendanceSelfReported: { type: Boolean, default: false },
   attendanceRespondedAt: Date,
@@ -118,10 +97,6 @@ const userSchema = new Schema({
   username: { type: String, required: true, unique: true },
   name: { type: String, required: true },
   passwordHash: { type: String, required: true },
-  // The very first account ever created becomes 'admin' automatically (same moment
-  // signup already treats specially for skipping the invite code) — see routes/auth.js.
-  // Everyone after that defaults to 'staff' unless an admin explicitly creates them
-  // as 'admin' from the Add HR User form.
   role: { type: String, enum: ['admin', 'staff'], default: 'staff' },
 }, { timestamps: { createdAt: true, updatedAt: false } });
 
@@ -157,17 +132,12 @@ function genToken() {
   return crypto.randomBytes(16).toString('hex');
 }
 
-// Shared date helpers. The public confirm flow has to agree exactly with
-// trainingStatus() in routes/trainings.js about when a training is over — if the two
-// ever disagree, an employee can be shown the "did you attend?" question for a training
-// the rest of the app still calls Upcoming. Keeping the rule in one place prevents that.
 function nairobiDateString(daysOffset = 0) {
   const d = new Date(Date.now() + daysOffset * 86400000);
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Nairobi' }).format(d);
 }
 
-// "Ended" is the complement of 'Upcoming': the day OF the training is not yet ended, and
-// a multi-day training isn't over until its last day has passed.
+
 function hasTrainingEnded(trainingDate, trainingEndDate) {
   return (trainingEndDate || trainingDate) < nairobiDateString();
 }
@@ -227,8 +197,6 @@ function verifyPassword(password, storedHash) {
   return candidate.length === expected.length && crypto.timingSafeEqual(candidate, expected);
 }
 
-// sessionSecret used to be computed once at startup (synchronously). Since Mongo access
-// is now async, server.js needs to await this before starting the app — see note below.
 async function initSessionSecret() {
   return getOrCreateSetting('session_secret', () => crypto.randomBytes(32).toString('hex'));
 }

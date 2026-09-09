@@ -43,19 +43,19 @@ export default function AttendancePage() {
 
     const handleMarkAllAttended = async () => {
         if (!nominees) return;
-        // Declined nominees are excluded from attendance entirely (the API rejects them),
-        // and anyone who answered the follow-up email themselves is left alone: overwriting
-        // someone who explicitly said "no, I did not attend" would turn a first-hand answer
-        // into a fabricated attendance record, and that flows straight into the reports.
+
         const markable = nominees.filter((n) => n.nomination_status !== 'Declined');
         const targets = markable.filter((n) => !n.attendance_self_reported);
         const kept = markable.length - targets.length;
+
         if (!targets.length) return;
+
         if (!window.confirm(
             `Mark ${targets.length} nominee(s) as Attended?` +
             (kept ? ` ${kept} who answered the email themselves will be left as they are.` : '') +
             ' This overwrites any existing marks.'
         )) return;
+
         try {
             await Promise.all(targets.map((n) => api.setAttendance(id, n.id, 'Attended')));
             showToast('Nominees marked Attended');
@@ -66,17 +66,15 @@ export default function AttendancePage() {
     };
 
     if (error) return <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>;
-    if (!training || nominees === null)
+
+    if (!training || nominees === null) {
         return (
             <div className="flex justify-center py-16">
                 <Spinner />
             </div>
         );
+    }
 
-    // Declined nominees are hidden here rather than filtered server-side: this page shares
-    // listNominees() with TrainingDetailPage, which must still show them for audit. Only
-    // the declined are hidden — people who never answered, or who have no email on file,
-    // still walk into the room, and the register has to be able to record that.
     const declinedCount = nominees.filter((n) => n.nomination_status === 'Declined').length;
     const visible = nominees.filter((n) => n.nomination_status !== 'Declined');
 
@@ -95,7 +93,7 @@ export default function AttendancePage() {
             <div className="mb-4 print:hidden">
                 <Link
                     to={`/trainings/${id}`}
-                    className="inline-flex items-center gap-1 text-sm text-zinc-600 hover:text-zinc-900"
+                    className="inline-flex items-center gap-1 text-sm text-zinc-600 transition-colors hover:text-zinc-900"
                 >
                     <ArrowLeft className="h-4 w-4" strokeWidth={2} />Back to Training
                 </Link>
@@ -106,7 +104,8 @@ export default function AttendancePage() {
                     <div className="flex flex-wrap items-start justify-between gap-3">
                         <div>
                             <h1 className="mb-1 flex items-center gap-2 text-xl font-semibold text-zinc-900">
-                                <ClipboardCheck className="h-5 w-5" strokeWidth={2} />Attendance Register
+                                <ClipboardCheck className="h-5 w-5 text-brand" strokeWidth={2} />
+                                Attendance Register
                             </h1>
                             <div className="text-sm text-zinc-500">
                                 {training.name} &middot; {formatDateRange(training.training_date, training.training_end_date)}
@@ -167,11 +166,6 @@ export default function AttendancePage() {
                                         </span>
                                     </td>
                                     <td className="print:hidden">
-                                        {/* These three options are the whole attendance vocabulary and must
-                                            stay in step with ATTENDANCE_STATUSES in backend/routes/nominees.js.
-                                            Do NOT add "Declined" here — that is a nomination status on a
-                                            separate axis; the PATCH would 400, and widening the whitelist to
-                                            "fix" that would corrupt every attendee/absentee report filter. */}
                                         <select
                                             className="form-input min-w-[9rem] py-1.5 text-xs"
                                             value={n.attendance_status}
@@ -187,7 +181,6 @@ export default function AttendancePage() {
                                             </span>
                                         )}
                                     </td>
-                                    {/* Printed version shows the plain status text instead of a dropdown */}
                                     <td className="hidden print:table-cell">{n.attendance_status}</td>
                                 </tr>
                             ))}

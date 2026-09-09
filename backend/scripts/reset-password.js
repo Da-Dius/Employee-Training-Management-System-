@@ -1,9 +1,4 @@
-// Reset an HR user's password from the command line — for when nobody else is
-// signed in to reset it for them from the HR Users page.
-// Usage: node scripts/reset-password.js <username> <new-password>
-//
-// dotenv first, before db/database.js: that module reads MONGODB_URI at require time
-// and throws if it is missing.
+
 require('dotenv').config({ quiet: true });
 
 const { mongoose, User, hashPassword } = require('../db/database');

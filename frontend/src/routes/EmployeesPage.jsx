@@ -66,7 +66,7 @@ export default function EmployeesPage() {
     const handleSave = async (form) => {
         if (editingEmployee) {
             await api.updateEmployee(
-                editingEmployee.id,
+                editingEmployee._id,
                 form
             );
         } else {
@@ -87,11 +87,11 @@ export default function EmployeesPage() {
         if (!confirmed) return;
 
         try {
-            setDeleteId(employee.id);
+            setDeleteId(employee._id);
             setError('');
 
             await api.deleteEmployee(
-                employee.id
+                employee._id
             );
 
             await loadEmployees();
@@ -319,7 +319,7 @@ export default function EmployeesPage() {
                                                     className="btn btn-outline btn-icon text-red-600 hover:border-red-200 hover:bg-red-50"
                                                     title="Delete employee"
                                                     disabled={
-                                                        deleteId === employee.id
+                                                        deleteId === employee._id
                                                     }
                                                     onClick={() =>
                                                         handleDelete(employee)

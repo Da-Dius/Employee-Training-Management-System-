@@ -21,16 +21,11 @@ import { CATEGORIES, formatDate } from '../utils';
 import Spinner from '../components/Spinner';
 import Modal from '../components/Modal';
 
-const RED = '#ff0613';
-const BLACK = '#0A0A0A';
-
 function formatKESShort(amount) {
   const n = Number(amount) || 0;
   return `KSh ${n.toLocaleString('en-KE')}`;
 }
 
-// Cost per completed attendance, by category — computed entirely from rows already
-// fetched for the main table, no extra request needed.
 function CostPerAttendeeByCategory({ rows }) {
   const byCategory = {};
   rows.forEach((r) => {
@@ -63,8 +58,8 @@ function CostPerAttendeeByCategory({ rows }) {
           </div>
           <div className="h-2 overflow-hidden rounded-full bg-zinc-100">
             <div
-              className="h-full rounded-full transition-all"
-              style={{ width: `${e.perAttendee ? (e.perAttendee / max) * 100 : 0}%`, backgroundColor: RED }}
+              className="h-full rounded-full bg-brand transition-all"
+              style={{ width: `${e.perAttendee ? (e.perAttendee / max) * 100 : 0}%` }}
             />
           </div>
         </div>
@@ -73,8 +68,6 @@ function CostPerAttendeeByCategory({ rows }) {
   );
 }
 
-// Attendance rate + spend, one bucket per month — only meaningful once more than one
-// month is present in the currently filtered rows (i.e. no single-month filter active).
 function MonthlyTrend({ rows }) {
   const byMonth = {};
   rows.forEach((r) => {
@@ -106,12 +99,12 @@ function MonthlyTrend({ rows }) {
           <div key={m} className="flex min-w-[64px] flex-1 flex-col items-center gap-1.5">
             <div className="flex h-28 w-full items-end justify-center">
               <div
-                className="w-8 rounded-t-md transition-all"
-                style={{ height: `${barHeight}%`, backgroundColor: BLACK }}
+                className="w-8 rounded-t-md bg-zinc-900 transition-all"
+                style={{ height: `${barHeight}%` }}
                 title={formatKESShort(data.cost)}
               />
             </div>
-            <div className="text-[11px] font-semibold" style={{ color: RED }}>
+            <div className="text-[11px] font-semibold text-brand">
               {rate}%
             </div>
             <div className="text-[10px] text-zinc-400">{m}</div>
@@ -122,8 +115,6 @@ function MonthlyTrend({ rows }) {
   );
 }
 
-// Department participation vs no-show rate — fetched separately since it needs a
-// per-department aggregation the main table rows don't carry.
 function DepartmentParticipation({ stats }) {
   if (stats === null) {
     return (
@@ -147,15 +138,15 @@ function DepartmentParticipation({ stats }) {
               <span className="font-medium text-zinc-700">{d.department}</span>
               <span className="text-zinc-500">
                 {d.nominee_count} sent &middot;{' '}
-                <span className={noShowRate > 30 ? 'font-semibold' : ''} style={noShowRate > 30 ? { color: RED } : undefined}>
+                <span className={noShowRate > 30 ? 'font-semibold text-brand' : ''}>
                   {noShowRate}% no-show
                 </span>
               </span>
             </div>
             <div className="h-2 overflow-hidden rounded-full bg-zinc-100">
               <div
-                className="h-full rounded-full transition-all"
-                style={{ width: `${(d.nominee_count / max) * 100}%`, backgroundColor: BLACK }}
+                className="h-full rounded-full bg-zinc-900 transition-all"
+                style={{ width: `${(d.nominee_count / max) * 100}%` }}
               />
             </div>
           </div>
@@ -206,7 +197,6 @@ function AnimatedValue({ value, format = (n) => n, duration = 700 }) {
     };
     frame = requestAnimationFrame(step);
     return () => cancelAnimationFrame(frame);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value]);
 
   return <>{format(display)}</>;
@@ -217,10 +207,10 @@ function KpiSkeleton() {
     <div className="card animate-pulse">
       <div className="card-body flex items-center justify-between gap-3">
         <div className="w-full">
-          <div className="mb-2 h-3 w-20 rounded bg-slate-200" />
-          <div className="h-6 w-14 rounded bg-slate-200" />
+          <div className="mb-2 h-3 w-20 rounded bg-zinc-200" />
+          <div className="h-6 w-14 rounded bg-zinc-200" />
         </div>
-        <div className="h-9 w-9 shrink-0 rounded-lg bg-slate-200" />
+        <div className="h-9 w-9 shrink-0 rounded-lg bg-zinc-200" />
       </div>
     </div>
   );
@@ -262,16 +252,16 @@ function TrainingActivityChart({ rows }) {
             style={{ animationDelay: `${i * 60}ms` }}
           >
             <div className="mb-2 flex items-center justify-between gap-4">
-              <span className="min-w-0 truncate text-sm font-semibold text-slate-800">{r.name}</span>
+              <span className="min-w-0 truncate text-sm font-semibold text-zinc-800">{r.name}</span>
               <div className="flex shrink-0 items-center gap-3 text-xs">
-                <span className="text-slate-500">
+                <span className="text-zinc-500">
                   {attended}/{total} attended
                 </span>
-                <span className="font-semibold text-slate-700">{attendedPct}%</span>
+                <span className="font-semibold text-zinc-700">{attendedPct}%</span>
               </div>
             </div>
 
-            <div className="flex h-3 w-full overflow-hidden rounded-full bg-slate-100">
+            <div className="flex h-3 w-full overflow-hidden rounded-full bg-zinc-100">
               {attendedPct > 0 && (
                 <div
                   className="h-full bg-emerald-500 transition-all duration-700 ease-out"
@@ -288,14 +278,14 @@ function TrainingActivityChart({ rows }) {
               )}
               {pendingPct > 0 && (
                 <div
-                  className="h-full bg-slate-300 transition-all duration-700 ease-out"
+                  className="h-full bg-zinc-300 transition-all duration-700 ease-out"
                   style={{ width: `${mounted ? pendingPct : 0}%` }}
                   title={`${pendingPct}% pending attendance`}
                 />
               )}
             </div>
 
-            <div className="mt-2 flex flex-wrap items-center gap-4 text-xs text-slate-400">
+            <div className="mt-2 flex flex-wrap items-center gap-4 text-xs text-zinc-400">
               <span className="flex items-center gap-1.5">
                 <span className="h-2 w-2 rounded-full bg-emerald-500" />
                 Attended: {attended}
@@ -305,7 +295,7 @@ function TrainingActivityChart({ rows }) {
                 Absent: {absent}
               </span>
               <span className="flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full bg-slate-300" />
+                <span className="h-2 w-2 rounded-full bg-zinc-300" />
                 Pending: {pending}
               </span>
             </div>
@@ -346,29 +336,29 @@ function TrainingDetailModal({ trainingId, onClose }) {
         <div className="space-y-5">
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
             <div>
-              <div className="text-xs text-slate-500">Category</div>
-              <div className="font-medium text-slate-900">{training.category}</div>
+              <div className="text-xs text-zinc-500">Category</div>
+              <div className="font-medium text-zinc-900">{training.category}</div>
             </div>
             <div>
-              <div className="text-xs text-slate-500">Training Dates</div>
-              <div className="font-medium text-slate-900">{formatDateRange(training.training_date, training.training_end_date)}</div>
+              <div className="text-xs text-zinc-500">Training Dates</div>
+              <div className="font-medium text-zinc-900">{formatDateRange(training.training_date, training.training_end_date)}</div>
             </div>
             <div>
-              <div className="text-xs text-slate-500">Venue</div>
-              <div className="font-medium text-slate-900">{training.venue || '-'}</div>
+              <div className="text-xs text-zinc-500">Venue</div>
+              <div className="font-medium text-zinc-900">{training.venue || '-'}</div>
             </div>
             <div>
-              <div className="text-xs text-slate-500">Cost</div>
-              <div className="font-medium text-slate-900">{formatKES(training.cost)}</div>
+              <div className="text-xs text-zinc-500">Cost</div>
+              <div className="font-medium text-zinc-900">{formatKES(training.cost)}</div>
             </div>
             <div>
-              <div className="text-xs text-slate-500">Paid/Free</div>
+              <div className="text-xs text-zinc-500">Paid/Free</div>
               <span className={training.paid ? 'badge badge-green' : 'badge badge-slate'}>
                 {training.paid ? 'Paid' : 'Free'}
               </span>
             </div>
             <div>
-              <div className="text-xs text-slate-500">Per Diem</div>
+              <div className="text-xs text-zinc-500">Per Diem</div>
               <span className={training.per_diem ? 'badge badge-green' : 'badge badge-slate'}>
                 {training.per_diem ? 'Yes' : 'No'}
               </span>
@@ -376,14 +366,14 @@ function TrainingDetailModal({ trainingId, onClose }) {
           </div>
           {training.description && (
             <div>
-              <div className="text-xs text-slate-500">Description</div>
-              <div className="text-sm text-slate-700">{training.description}</div>
+              <div className="text-xs text-zinc-500">Description</div>
+              <div className="text-sm text-zinc-700">{training.description}</div>
             </div>
           )}
 
           <div>
-            <div className="mb-2 text-sm font-semibold text-slate-900">Nominees</div>
-            <div className="max-h-72 overflow-y-auto rounded-lg border border-slate-200">
+            <div className="mb-2 text-sm font-semibold text-zinc-900">Nominees</div>
+            <div className="max-h-72 overflow-y-auto rounded-lg border border-zinc-200">
               <table className="table-clean">
                 <thead>
                   <tr>
@@ -400,7 +390,7 @@ function TrainingDetailModal({ trainingId, onClose }) {
                 <tbody>
                   {nominees && nominees.length === 0 && (
                     <tr>
-                      <td colSpan={8} className="py-4 text-center text-slate-400">
+                      <td colSpan={8} className="py-4 text-center text-zinc-400">
                         No nominees for this training.
                       </td>
                     </tr>
@@ -408,14 +398,12 @@ function TrainingDetailModal({ trainingId, onClose }) {
                   {nominees &&
                     nominees.map((n) => (
                       <tr key={n.id}>
-                        <td className="font-medium text-slate-900">{n.name}</td>
+                        <td className="font-medium text-zinc-900">{n.name}</td>
                         <td>{n.employee_number}</td>
                         <td>{n.department || '-'}</td>
                         <td>{n.division || '-'}</td>
                         <td>{n.section || '-'}</td>
                         <td>{n.station_region || '-'}</td>
-                        {/* Without this a declined nominee reads as an unexplained
-                            "Pending" attendance to whoever drills in from the report. */}
                         <td>
                           <span className={nominationBadgeClass(n.nomination_status)}>
                             {n.nomination_status || 'Pending'}
@@ -459,7 +447,6 @@ export default function ReportsPage() {
 
   const loadDepartmentStats = useCallback(async (f) => {
     try {
-      // department-stats deliberately ignores the department filter itself — see reports.js
       const { department, ...rest } = f;
       const data = await api.listDepartmentStats(rest);
       setDepartmentStats(data);
@@ -471,7 +458,6 @@ export default function ReportsPage() {
   useEffect(() => {
     load(filters);
     loadDepartmentStats(filters);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -505,57 +491,48 @@ export default function ReportsPage() {
 
   const overallRate = totals.nominees > 0 ? (totals.attendees / totals.nominees) * 100 : 0;
 
-  // raw + format kept separate so AnimatedValue can count up the underlying number
-  // and re-format it (with commas / % / KSh) on every animation frame.
-  // Strictly alternating red/black — no colors outside the brand palette.
   const summaryCards = [
     {
       label: 'Total Trainings',
       raw: rows ? rows.length : 0,
       format: (n) => Math.round(n),
       Icon: BookText,
-      color: RED,
-      accentBg: 'bg-red-50',
+      theme: 'brand',
     },
     {
       label: 'Total Nominees',
       raw: totals.nominees,
       format: (n) => Math.round(n),
       Icon: Users,
-      color: BLACK,
-      accentBg: 'bg-zinc-100',
+      theme: 'dark',
     },
     {
       label: 'Total Attendees',
       raw: totals.attendees,
       format: (n) => Math.round(n),
       Icon: UserCheck,
-      color: RED,
-      accentBg: 'bg-red-50',
+      theme: 'brand',
     },
     {
       label: 'Total Absentees',
       raw: totals.absentees,
       format: (n) => Math.round(n),
       Icon: UserX,
-      color: BLACK,
-      accentBg: 'bg-zinc-100',
+      theme: 'dark',
     },
     {
       label: 'Attendance Rate',
       raw: overallRate,
       format: (n) => `${n.toFixed(1)}%`,
       Icon: Percent,
-      color: RED,
-      accentBg: 'bg-red-50',
+      theme: 'brand',
     },
     {
       label: 'Total Training Cost',
       raw: totals.cost,
       format: (n) => formatKES(n),
       Icon: Wallet,
-      color: BLACK,
-      accentBg: 'bg-zinc-100',
+      theme: 'dark',
       wide: true,
     },
   ];
@@ -575,8 +552,8 @@ export default function ReportsPage() {
       {/* Page heading */}
       <div className="mb-6 flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Monthly Report</h1>
-          <p className="mt-1 text-sm text-slate-500">Review training activity, attendance, and training costs.</p>
+          <h1 className="text-2xl font-bold tracking-tight text-zinc-900 sm:text-3xl">Monthly Report</h1>
+          <p className="mt-1 text-sm text-zinc-500">Review training activity, attendance, and training costs.</p>
         </div>
       </div>
 
@@ -621,7 +598,7 @@ export default function ReportsPage() {
             <div>
               <label className="form-label">Training Name</label>
               <div className="relative">
-                <Search className="pointer-events-none absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <Search className="pointer-events-none absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2 text-zinc-400" />
                 <input
                   type="text"
                   className="form-input pl-8"
@@ -638,9 +615,8 @@ export default function ReportsPage() {
               <RotateCcw className="h-4 w-4" strokeWidth={2} />Reset Filters
             </button>
             <a
-              className="btn btn-outline"
+              className="btn btn-outline-primary"
               href={api.monthlyAttendeeExportUrl(filters)}
-              style={{ borderColor: `${RED}33`, color: RED }}
             >
               <Users2 className="h-4 w-4" strokeWidth={2} />Export Attendee List
             </a>
@@ -655,28 +631,34 @@ export default function ReportsPage() {
       <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-6">
         {rows === null
           ? summaryCards.map((c) => <KpiSkeleton key={c.label} />)
-          : summaryCards.map(({ label, raw, format, Icon, color, accentBg, wide }, i) => (
-            <div
-              key={label}
-              style={{ animationDelay: `${i * 60}ms`, borderTopColor: color }}
-              className="card group animate-fade-slide-in border-t-[3px]"
-            >
-              <div className="card-body flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="mb-1 text-xs font-medium text-zinc-500">{label}</div>
-                  <div className={wide ? 'whitespace-nowrap text-lg font-bold text-zinc-900' : 'text-xl font-bold text-zinc-900'}>
-                    <AnimatedValue value={raw} format={format} />
+          : summaryCards.map(({ label, raw, format, Icon, theme, wide }, i) => {
+            const isBrand = theme === 'brand';
+            const colorClass = isBrand ? 'text-brand' : 'text-zinc-900';
+            const borderClass = isBrand ? 'border-t-brand' : 'border-t-zinc-900';
+            const accentBg = isBrand ? 'bg-red-50' : 'bg-zinc-100';
+
+            return (
+              <div
+                key={label}
+                style={{ animationDelay: `${i * 60}ms` }}
+                className={`card group animate-fade-slide-in border-t-[3px] ${borderClass}`}
+              >
+                <div className="card-body flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="mb-1 text-xs font-medium text-zinc-500">{label}</div>
+                    <div className={wide ? 'whitespace-nowrap text-lg font-bold text-zinc-900' : 'text-xl font-bold text-zinc-900'}>
+                      <AnimatedValue value={raw} format={format} />
+                    </div>
                   </div>
+                  <span
+                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-transform duration-200 group-hover:scale-110 ${accentBg} ${colorClass}`}
+                  >
+                    <Icon className="h-4 w-4" strokeWidth={2} />
+                  </span>
                 </div>
-                <span
-                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-transform duration-200 group-hover:scale-110 ${accentBg}`}
-                  style={{ color }}
-                >
-                  <Icon className="h-4 w-4" strokeWidth={2} />
-                </span>
               </div>
-            </div>
-          ))}
+            );
+          })}
       </div>
 
       {/* Training Activity */}
@@ -685,12 +667,12 @@ export default function ReportsPage() {
           <div className="card-body">
             <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h2 className="flex items-center gap-2 text-base font-semibold text-slate-900">
+                <h2 className="flex items-center gap-2 text-base font-semibold text-zinc-900">
                   <BarChart3 className="h-[18px] w-[18px]" strokeWidth={2} />Training Activity
                 </h2>
-                <p className="mt-1 text-xs text-slate-500">Attendance progress for the selected training period.</p>
+                <p className="mt-1 text-xs text-zinc-500">Attendance progress for the selected training period.</p>
               </div>
-              <div className="flex flex-wrap items-center gap-4 text-xs text-slate-500">
+              <div className="flex flex-wrap items-center gap-4 text-xs text-zinc-500">
                 <span className="flex items-center gap-1.5">
                   <span className="h-2 w-2 rounded-full bg-emerald-500" />Attended
                 </span>
@@ -698,7 +680,7 @@ export default function ReportsPage() {
                   <span className="h-2 w-2 rounded-full bg-red-400" />Absent
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <span className="h-2 w-2 rounded-full bg-slate-300" />Pending
+                  <span className="h-2 w-2 rounded-full bg-zinc-300" />Pending
                 </span>
               </div>
             </div>
@@ -710,7 +692,7 @@ export default function ReportsPage() {
       {/* Analysis: department participation, cost per attendee, monthly trend */}
       {rows && rows.length > 0 && (
         <div className="mb-6 grid grid-cols-1 items-start gap-6 lg:grid-cols-3">
-          <div className="card border-t-[3px]" style={{ borderTopColor: BLACK }}>
+          <div className="card border-t-[3px] border-t-zinc-900">
             <div className="card-body">
               <h2 className="mb-1 flex items-center gap-2 text-sm font-semibold text-zinc-900">
                 <Building2 className="h-4 w-4" strokeWidth={2} />Department Participation
@@ -720,7 +702,7 @@ export default function ReportsPage() {
             </div>
           </div>
 
-          <div className="card border-t-[3px]" style={{ borderTopColor: RED }}>
+          <div className="card border-t-[3px] border-t-brand">
             <div className="card-body">
               <h2 className="mb-1 flex items-center gap-2 text-sm font-semibold text-zinc-900">
                 <Wallet className="h-4 w-4" strokeWidth={2} />Cost per Attendee
@@ -730,7 +712,7 @@ export default function ReportsPage() {
             </div>
           </div>
 
-          <div className="card border-t-[3px]" style={{ borderTopColor: BLACK }}>
+          <div className="card border-t-[3px] border-t-zinc-900">
             <div className="card-body">
               <h2 className="mb-1 flex items-center gap-2 text-sm font-semibold text-zinc-900">
                 <TrendingUp className="h-4 w-4" strokeWidth={2} />Monthly Trend
@@ -784,14 +766,14 @@ export default function ReportsPage() {
                   const rate = attendanceRate(r);
                   return (
                     <tr key={r.id}>
-                      <td className="font-medium text-slate-900">{r.name}</td>
+                      <td className="font-medium text-zinc-900">{r.name}</td>
                       <td>{r.category}</td>
                       <td>{formatDate(r.training_date)}</td>
                       <td>{r.venue || '-'}</td>
                       <td className="text-center">{r.nominee_count}</td>
                       <td className="text-center font-medium text-emerald-600">{r.attendee_count}</td>
                       <td className="text-center font-medium text-red-600">{r.absentee_count}</td>
-                      <td className="text-center text-slate-500">{r.declined_count}</td>
+                      <td className="text-center text-zinc-500">{r.declined_count}</td>
                       <td className="text-center">
                         {rate === null ? (
                           '-'
@@ -819,12 +801,12 @@ export default function ReportsPage() {
             </tbody>
             {!error && rows && rows.length > 0 && (
               <tfoot>
-                <tr className="border-t-2 border-slate-200 bg-slate-50 font-semibold text-slate-900">
+                <tr className="border-t-2 border-zinc-200 bg-zinc-50 font-semibold text-zinc-900">
                   <td colSpan={4} className="text-left">Totals</td>
                   <td className="text-center">{totals.nominees}</td>
                   <td className="text-center text-emerald-700">{totals.attendees}</td>
                   <td className="text-center text-red-700">{totals.absentees}</td>
-                  <td className="text-center text-slate-600">{totals.declined}</td>
+                  <td className="text-center text-zinc-600">{totals.declined}</td>
                   <td className="text-center">{overallRate.toFixed(1)}%</td>
                   <td className="whitespace-nowrap">{formatKES(totals.cost)}</td>
                   <td colSpan={3}></td>
@@ -835,12 +817,12 @@ export default function ReportsPage() {
 
           {!error && rows && rows.length === 0 && (
             <div className="flex flex-col items-center gap-3 py-16 text-center">
-              <span className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-400">
+              <span className="flex h-12 w-12 items-center justify-center rounded-full bg-zinc-100 text-zinc-400">
                 <Inbox className="h-6 w-6" strokeWidth={2} />
               </span>
               <div>
-                <div className="font-medium text-slate-700">No training records found</div>
-                <div className="mt-1 text-sm text-slate-500">There are no training activities matching the selected filters.</div>
+                <div className="font-medium text-zinc-700">No training records found</div>
+                <div className="mt-1 text-sm text-zinc-500">There are no training activities matching the selected filters.</div>
               </div>
               <button className="btn btn-outline btn-sm" onClick={handleReset}>
                 <RotateCcw className="h-4 w-4" strokeWidth={2} />Clear Filters

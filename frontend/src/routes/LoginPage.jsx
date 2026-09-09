@@ -29,13 +29,16 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-screen items-center bg-zinc-100">
       <div className="mx-auto w-full max-w-[420px] px-4">
+
         <div className="mb-6 text-center">
-          <span className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-[#F0142F] to-[#8C0018] text-white shadow-sm">
+          {/* Aligned exactly with NavBar logo styling */}
+          <span className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-brand to-[#930f00] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.25)] ring-1 ring-black/20">
             <GraduationCap className="h-6 w-6" strokeWidth={2.25} />
           </span>
           <h4 className="text-lg font-semibold text-zinc-900">HRCD Training Management</h4>
           <div className="text-sm text-zinc-500">HR staff sign in</div>
         </div>
+
         <div className="card">
           <div className="card-body">
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -67,11 +70,13 @@ export default function LoginPage() {
             {error && <div className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
           </div>
         </div>
+
         <div className="mt-4 text-center">
-          <Link to="/signup" className="text-sm text-[#ff0613] hover:underline">
+          <Link to="/signup" className="text-sm font-medium text-brand hover:underline">
             Have an invite code? Create an account
           </Link>
         </div>
+
       </div>
     </div>
   );

@@ -18,56 +18,14 @@ import * as api from '../api/client';
 import { formatDate } from '../utils';
 import { useAuth } from '../context/AuthContext';
 
-const RED = '#ff0613';
-const BLACK = '#0A0A0A';
-
-// Strictly alternating red/black — no colors outside the brand palette.
+// Using a 'theme' string instead of hardcoded hex colors to map to Tailwind classes
 const CARD_CONFIG = [
-  {
-    key: 'totalTrainings',
-    label: 'Total Trainings',
-    Icon: BookText,
-    color: RED,
-    accentBg: 'bg-red-50',
-    to: '/trainings',
-  },
-  {
-    key: 'upcomingTrainings',
-    label: 'Upcoming Trainings',
-    Icon: CalendarDays,
-    color: BLACK,
-    accentBg: 'bg-zinc-100',
-    to: '/trainings',
-  },
-  {
-    key: 'completedTrainings',
-    label: 'Completed Trainings',
-    Icon: CheckCircle2,
-    color: RED,
-    accentBg: 'bg-red-50',
-    to: '/trainings',
-  },
-  {
-    key: 'totalNominees',
-    label: 'Total Nominees',
-    Icon: Users,
-    color: BLACK,
-    accentBg: 'bg-zinc-100',
-  },
-  {
-    key: 'totalAttendees',
-    label: 'Total Attendees',
-    Icon: UserCheck,
-    color: RED,
-    accentBg: 'bg-red-50',
-  },
-  {
-    key: 'totalDeclined',
-    label: 'Declined',
-    Icon: UserX,
-    color: BLACK,
-    accentBg: 'bg-zinc-100',
-  },
+  { key: 'totalTrainings', label: 'Total Trainings', Icon: BookText, theme: 'brand', to: '/trainings' },
+  { key: 'upcomingTrainings', label: 'Upcoming Trainings', Icon: CalendarDays, theme: 'dark', to: '/trainings' },
+  { key: 'completedTrainings', label: 'Completed Trainings', Icon: CheckCircle2, theme: 'brand', to: '/trainings' },
+  { key: 'totalNominees', label: 'Total Nominees', Icon: Users, theme: 'dark' },
+  { key: 'totalAttendees', label: 'Total Attendees', Icon: UserCheck, theme: 'brand' },
+  { key: 'totalDeclined', label: 'Declined', Icon: UserX, theme: 'dark' },
 ];
 
 const prefersReducedMotion =
@@ -122,14 +80,13 @@ function AnimatedNumber({ value, duration = 700 }) {
     };
     frame = requestAnimationFrame(step);
     return () => cancelAnimationFrame(frame);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value]);
 
   return <>{display}</>;
 }
 
 function TrainingRow({ t, tone, index }) {
-  const toneColor = tone === 'upcoming' ? RED : BLACK;
+  const toneColorClass = tone === 'upcoming' ? 'text-brand' : 'text-zinc-900';
 
   return (
     <Link
@@ -150,7 +107,7 @@ function TrainingRow({ t, tone, index }) {
         </div>
       </div>
       <div className="mt-2 flex items-center justify-between text-xs">
-        <span className="inline-flex items-center gap-1 font-semibold" style={{ color: toneColor }}>
+        <span className={`inline-flex items-center gap-1 font-semibold ${toneColorClass}`}>
           {tone === 'completed' && <BadgeCheck className="h-3.5 w-3.5" strokeWidth={2} />}
           {relativeDate(t.training_date)}
         </span>
@@ -263,11 +220,15 @@ export default function DashboardPage() {
         </Link>
       </div>
 
-      {/* Six cards, so six columns — a 6th in a 5-col grid wraps to a row of one. */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-6">
         {!stats
           ? CARD_CONFIG.map(({ key }) => <KpiSkeleton key={key} />)
-          : CARD_CONFIG.map(({ key, label, Icon, color, accentBg, to }, i) => {
+          : CARD_CONFIG.map(({ key, label, Icon, theme, to }, i) => {
+            const isBrand = theme === 'brand';
+            const colorClass = isBrand ? 'text-brand' : 'text-zinc-900';
+            const borderClass = isBrand ? 'border-t-brand' : 'border-t-zinc-900';
+            const accentBg = isBrand ? 'bg-red-50' : 'bg-zinc-100';
+
             const content = (
               <div className="card-body flex items-center justify-between gap-3">
                 <div className="min-w-0">
@@ -279,45 +240,41 @@ export default function DashboardPage() {
                     <div className="mt-2 w-24">
                       <div className="h-1.5 overflow-hidden rounded-full bg-zinc-100">
                         <div
-                          className="h-full rounded-full transition-all duration-700 ease-out"
-                          style={{ width: `${ratioMounted ? confirmedRatio : 0}%`, backgroundColor: BLACK }}
+                          className="h-full rounded-full bg-zinc-900 transition-all duration-700 ease-out"
+                          style={{ width: `${ratioMounted ? confirmedRatio : 0}%` }}
                         />
                       </div>
                       <div className="mt-1 text-[11px] text-zinc-400">{confirmedRatio}% of nominees</div>
                     </div>
                   )}
                 </div>
-                <span
-                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg transition-transform duration-200 group-hover:scale-110 ${accentBg}`}
-                  style={{ color }}
-                >
+                <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg transition-transform duration-200 group-hover:scale-110 ${accentBg} ${colorClass}`}>
                   <Icon className="h-5 w-5" strokeWidth={2} />
                 </span>
               </div>
             );
-            const commonProps = {
-              style: { animationDelay: `${i * 60}ms`, borderTopColor: color },
-              className: `card group animate-fade-slide-in border-t-[3px] ${to ? 'card-hover' : ''}`,
-            };
+
+            const className = `card group animate-fade-slide-in border-t-[3px] ${borderClass} ${to ? 'card-hover' : ''}`;
+            const style = { animationDelay: `${i * 60}ms` };
+
             return to ? (
-              <Link key={key} to={to} {...commonProps}>
+              <Link key={key} to={to} className={className} style={style}>
                 {content}
               </Link>
             ) : (
-              <div key={key} {...commonProps}>{content}</div>
+              <div key={key} className={className} style={style}>{content}</div>
             );
           })}
       </div>
 
       <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-2">
-        {/* Upcoming Trainings — red */}
-        <div className="card border-t-[3px]" style={{ borderTopColor: RED }}>
+        <div className="card card-accent-brand">
           <div className="card-body">
             <div className="section-heading">
               <h2 className="flex items-center gap-2 text-base font-semibold text-zinc-900">
                 <CalendarClock className="h-[18px] w-[18px]" strokeWidth={2} />Upcoming Trainings
               </h2>
-              <Link to="/trainings" className="inline-flex items-center gap-1 text-sm font-medium hover:underline" style={{ color: RED }}>
+              <Link to="/trainings" className="inline-flex items-center gap-1 text-sm font-medium text-brand hover:underline">
                 View all<ArrowRight className="h-3.5 w-3.5" strokeWidth={2} />
               </Link>
             </div>
@@ -327,7 +284,7 @@ export default function DashboardPage() {
             {upcoming && upcoming.length === 0 && (
               <div className="py-8 text-center text-sm text-zinc-400">
                 Nothing scheduled yet.{' '}
-                <Link to="/trainings" className="font-medium hover:underline" style={{ color: RED }}>
+                <Link to="/trainings" className="font-medium text-brand hover:underline">
                   Create a training
                 </Link>{' '}
                 to see it here.
@@ -344,14 +301,13 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Recently Completed — black */}
-        <div className="card border-t-[3px]" style={{ borderTopColor: BLACK }}>
+        <div className="card border-t-[3px] border-t-zinc-900">
           <div className="card-body">
             <div className="section-heading">
               <h2 className="flex items-center gap-2 text-base font-semibold text-zinc-900">
                 <History className="h-[18px] w-[18px]" strokeWidth={2} />Recently Completed
               </h2>
-              <Link to="/trainings" className="inline-flex items-center gap-1 text-sm font-medium hover:underline" style={{ color: RED }}>
+              <Link to="/trainings" className="inline-flex items-center gap-1 text-sm font-medium text-brand hover:underline">
                 View all<ArrowRight className="h-3.5 w-3.5" strokeWidth={2} />
               </Link>
             </div>

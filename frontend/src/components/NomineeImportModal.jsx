@@ -28,6 +28,7 @@ export default function NomineeImportModal({ show, trainingId, onClose, onImport
         }
         setImporting(true);
         setError('');
+
         try {
             const data = await api.importNominees(trainingId, file);
             setResult(data);
@@ -64,21 +65,23 @@ export default function NomineeImportModal({ show, trainingId, onClose, onImport
             {!result && (
                 <div className="space-y-4">
                     <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-sm text-zinc-600">
-                        Upload a <span className="font-medium">.xlsx</span> file with one{' '}
-                        <span className="font-medium">Employee Number</span> per row in the first column. A header row is
+                        Upload a <span className="font-medium text-zinc-900">.xlsx</span> file with one{' '}
+                        <span className="font-medium text-zinc-900">Employee Number</span> per row in the first column. A header row is
                         optional. Every other field (name, department, division, section, station, email) is pulled
                         automatically from the employee directory — matching numbers not found there will be skipped.
                     </div>
+
                     <div>
                         <label className="form-label">File</label>
                         <input
                             ref={fileInputRef}
                             type="file"
                             accept=".xlsx"
-                            className="form-input file:mr-3 file:rounded-md file:border-0 file:bg-zinc-100 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-zinc-700"
+                            className="form-input file:mr-3 file:rounded-md file:border-0 file:bg-zinc-200 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-zinc-700 hover:file:bg-zinc-300 file:transition-colors"
                             onChange={(e) => setFile(e.target.files?.[0] || null)}
                         />
                     </div>
+
                     {error && <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
                 </div>
             )}
@@ -87,7 +90,7 @@ export default function NomineeImportModal({ show, trainingId, onClose, onImport
                 <div className="space-y-4">
                     <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm text-emerald-800">
                         <CheckCircle2 className="h-4 w-4 shrink-0" strokeWidth={2} />
-                        {result.imported.length} nominee{result.imported.length === 1 ? '' : 's'} imported.
+                        <span className="font-medium">{result.imported.length} nominee{result.imported.length === 1 ? '' : 's'} imported successfully.</span>
                     </div>
 
                     {result.skipped.length > 0 && (
@@ -96,7 +99,9 @@ export default function NomineeImportModal({ show, trainingId, onClose, onImport
                                 <AlertTriangle className="h-4 w-4 text-amber-500" strokeWidth={2} />
                                 {result.skipped.length} skipped
                             </div>
-                            <div className="max-h-52 overflow-y-auto rounded-lg border border-zinc-200">
+
+                            {/* Replaced standard border with .card for UI consistency */}
+                            <div className="card max-h-52 overflow-y-auto">
                                 <table className="table-clean">
                                     <thead>
                                         <tr>

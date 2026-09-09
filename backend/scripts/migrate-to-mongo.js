@@ -24,7 +24,6 @@ async function main() {
         process.exit(1);
     }
 
-    // Wait for the Mongo connection triggered by requiring db/database.js above.
     await mongoose.connection.asPromise();
     console.log(`Connected to Mongo. Reading SQLite from ${sqlitePath}`);
 
@@ -101,7 +100,7 @@ async function main() {
         const newTrainingId = trainingIdMap.get(row.training_id);
         if (!newTrainingId) {
             skippedNominees += 1;
-            continue; // orphaned row with no matching training — shouldn't happen, but don't crash the run
+            continue;
         }
         await Nominee.create(
             [{
@@ -114,10 +113,6 @@ async function main() {
                 stationRegion: row.station_region,
                 email: row.email,
                 attendanceStatus: row.attendance_status,
-                // The old SQLite `employee_confirmed` meant "clicked the confirmation
-                // link", which under the split lifecycle is nomination *acceptance*, not
-                // attendance. Mapped rather than dropped: Mongoose strict mode would
-                // silently discard the retired field name instead of erroring.
                 nominationStatus: row.employee_confirmed ? 'Accepted' : 'Pending',
                 confirmationToken: row.confirmation_token,
                 createdAt: new Date(row.created_at),

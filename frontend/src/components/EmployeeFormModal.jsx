@@ -3,12 +3,12 @@ import Modal from './Modal';
 
 const empty = {
     name: '',
-    employeeNumber: '',
+    employee_number: '',
     email: '',
     department: '',
     division: '',
     section: '',
-    stationRegion: '',
+    station_region: '',
 };
 
 export default function EmployeeFormModal({
@@ -25,12 +25,12 @@ export default function EmployeeFormModal({
         if (employee) {
             setForm({
                 name: employee.name || '',
-                employeeNumber: employee.employeeNumber || '',
+                employee_number: employee.employee_number || '',
                 email: employee.email || '',
                 department: employee.department || '',
                 division: employee.division || '',
                 section: employee.section || '',
-                stationRegion: employee.stationRegion || '',
+                station_region: employee.station_region || '',
             });
         } else {
             setForm(empty);
@@ -129,12 +129,9 @@ export default function EmployeeFormModal({
                         type="text"
                         className="form-input"
                         required
-                        value={form.employeeNumber}
+                        value={form.employee_number}
                         onChange={(e) =>
-                            handleChange(
-                                'employeeNumber',
-                                e.target.value
-                            )
+                            handleChange('employee_number', e.target.value)
                         }
                         placeholder="Employee number"
                     />
@@ -166,10 +163,7 @@ export default function EmployeeFormModal({
                         className="form-input"
                         value={form.department}
                         onChange={(e) =>
-                            handleChange(
-                                'department',
-                                e.target.value
-                            )
+                            handleChange('department', e.target.value)
                         }
                     />
                 </div>
@@ -184,10 +178,7 @@ export default function EmployeeFormModal({
                         className="form-input"
                         value={form.division}
                         onChange={(e) =>
-                            handleChange(
-                                'division',
-                                e.target.value
-                            )
+                            handleChange('division', e.target.value)
                         }
                     />
                 </div>
@@ -202,10 +193,7 @@ export default function EmployeeFormModal({
                         className="form-input"
                         value={form.section}
                         onChange={(e) =>
-                            handleChange(
-                                'section',
-                                e.target.value
-                            )
+                            handleChange('section', e.target.value)
                         }
                     />
                 </div>
@@ -218,12 +206,9 @@ export default function EmployeeFormModal({
                     <input
                         type="text"
                         className="form-input"
-                        value={form.stationRegion}
+                        value={form.station_region}
                         onChange={(e) =>
-                            handleChange(
-                                'stationRegion',
-                                e.target.value
-                            )
+                            handleChange('station_region', e.target.value)
                         }
                     />
                 </div>
