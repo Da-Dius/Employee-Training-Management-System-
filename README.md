@@ -60,22 +60,20 @@ pnpm run dev
 Access the application at http://localhost:5173.
 
 ```
-
-
- ``` 
+```
 ### Production Deployment 
 
 In production, the Node.js backend directly serves the compiled React static files.
 
 # 1. Build the frontend
 cd frontend
-npm install
-npm run build
+pnpm install
+pnpm run build
 
 # 2. Start the backend server
 cd ../backend
-npm install
-npm start
+pnpm install
+pnpm start
 
 Access the application at http://localhost:3000.
 
