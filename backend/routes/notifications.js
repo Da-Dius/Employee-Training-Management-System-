@@ -23,7 +23,7 @@ async function generateDueNotifications() {
                             refId: t._id,
                             message,
                             link: `/trainings/${t._id}`,
-                            read: false,
+                            read_by: [],
                         },
                     },
                     { upsert: true }
@@ -36,13 +36,14 @@ async function generateDueNotifications() {
     );
 }
 
-function serializeNotification(doc) {
+// `read` is from the point of view of the signed-in user
+function serializeNotification(doc, userId) {
     return {
         id: doc._id,
         type: doc.type,
         message: doc.message,
         link: doc.link,
-        read: doc.read,
+        read: (doc.read_by || []).some((id) => String(id) === userId),
         created_at: doc.createdAt,
     };
 }
@@ -50,19 +51,23 @@ function serializeNotification(doc) {
 router.get('/', asyncHandler(async (req, res) => {
     await generateDueNotifications();
     const notifications = await Notification.find().sort({ createdAt: -1 }).limit(30);
-    res.json(notifications.map(serializeNotification));
+    res.json(notifications.map((n) => serializeNotification(n, req.session.userId)));
 }));
 
 router.post('/:id/read', asyncHandler(async (req, res) => {
     if (!isValidId(req.params.id)) {
         return res.status(404).json({ error: 'Notification not found' });
     }
-    await Notification.findByIdAndUpdate(req.params.id, { read: true });
+    await Notification.updateOne({ _id: req.params.id }, { $addToSet: { read_by: req.session.userId } });
     res.status(204).end();
 }));
 
+// Marks everything read for the signed-in user only
 router.post('/read-all', asyncHandler(async (req, res) => {
-    await Notification.updateMany({ read: false }, { read: true });
+    await Notification.updateMany(
+        { read_by: { $ne: req.session.userId } },
+        { $addToSet: { read_by: req.session.userId } }
+    );
     res.status(204).end();
 }));
 

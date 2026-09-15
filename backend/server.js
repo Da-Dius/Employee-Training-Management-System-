@@ -138,9 +138,15 @@ async function main() {
     res.status(500).json({ error: 'Internal server error' });
   });
 
-  app.listen(PORT, () => {
+  const server = app.listen(PORT, () => {
     console.log(`HRMS Training Management System running at http://localhost:${PORT}`);
   });
+
+  // Keep idle connections open longer than browsers and Render's load balancer do. With Node's
+  // 5s default, a client could send a request on a connection the server had just closed,
+  // which the browser reports as "Load failed" (Safari does not retry POSTs).
+  server.keepAliveTimeout = 65 * 1000;
+  server.headersTimeout = 66 * 1000;
 }
 
 main().catch((err) => {

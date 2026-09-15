@@ -122,11 +122,11 @@ export default function EmployeesPage() {
         <>
             <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
                 <div>
-                    <h1 className="text-xl font-semibold text-slate-900">
+                    <h1 className="text-xl font-semibold text-zinc-900">
                         Employees
                     </h1>
 
-                    <p className="mt-1 text-sm text-slate-500">
+                    <p className="mt-1 text-sm text-zinc-500">
                         Manage employees available for program nominations.
                     </p>
                 </div>
@@ -154,7 +154,7 @@ export default function EmployeesPage() {
 
                             <div className="relative">
                                 <Search
-                                    className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+                                    className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -tranzinc-y-1/2 text-zinc-400"
                                     strokeWidth={2}
                                 />
 
@@ -221,7 +221,7 @@ export default function EmployeesPage() {
                     </div>
                 ) : employees.length === 0 ? (
                     <div className="flex flex-col items-center gap-3 py-16 text-center">
-                        <span className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-400">
+                        <span className="flex h-12 w-12 items-center justify-center rounded-full bg-zinc-100 text-zinc-400">
                             <Inbox
                                 className="h-6 w-6"
                                 strokeWidth={2}
@@ -229,11 +229,11 @@ export default function EmployeesPage() {
                         </span>
 
                         <div>
-                            <div className="font-medium text-slate-700">
+                            <div className="font-medium text-zinc-700">
                                 No employees found
                             </div>
 
-                            <div className="mt-1 text-sm text-slate-500">
+                            <div className="mt-1 text-sm text-zinc-500">
                                 Add an employee or change your search filters.
                             </div>
                         </div>
@@ -273,14 +273,14 @@ export default function EmployeesPage() {
                                         <tr key={employee.id}>
                                             <td>
                                                 <div className="flex items-center gap-3">
-                                                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-600">
+                                                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-zinc-500">
                                                         <Users
                                                             className="h-4 w-4"
                                                             strokeWidth={2}
                                                         />
                                                     </span>
 
-                                                    <span className="font-medium text-slate-900">
+                                                    <span className="font-medium text-zinc-900">
                                                         {employee.name}
                                                     </span>
                                                 </div>
@@ -314,7 +314,7 @@ export default function EmployeesPage() {
                                                 <div className="flex justify-end gap-2">
                                                     <button
                                                         type="button"
-                                                        className="btn btn-outline btn-icon"
+                                                        className="btn btn-outline-primary btn-icon"
                                                         title="Edit employee"
                                                         onClick={() =>
                                                             handleEdit(employee)
@@ -329,7 +329,7 @@ export default function EmployeesPage() {
                                                     {isAdmin && (
                                                         <button
                                                             type="button"
-                                                            className="btn btn-outline btn-icon text-red-600 hover:border-red-200 hover:bg-red-50"
+                                                            className="btn btn-outline-danger btn-icon"
                                                             title="Delete employee"
                                                             disabled={
                                                                 deleteId === employee.id

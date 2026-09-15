@@ -45,6 +45,7 @@ export default function TrainingDetailPage() {
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [replaceTarget, setReplaceTarget] = useState(null);
   const [requesting, setRequesting] = useState(false);
+  const [sendingId, setSendingId] = useState(null);
   const [uploadFiles, setUploadFiles] = useState(null);
 
   const loadTraining = useCallback(async () => {
@@ -105,12 +106,16 @@ export default function TrainingDetailPage() {
   };
 
   const handleSendConfirmation = async (nomineeId) => {
+    if (sendingId) return;
+    setSendingId(nomineeId);
     try {
       await api.sendConfirmationEmail(id, nomineeId);
       showToast('Nomination email sent');
       loadNominees();
     } catch (e) {
       showToast(e.message, 'danger');
+    } finally {
+      setSendingId(null);
     }
   };
 
@@ -420,8 +425,10 @@ export default function TrainingDetailPage() {
                               className="btn btn-outline-primary btn-sm"
                               title="Send nomination email"
                               onClick={() => handleSendConfirmation(n.id)}
+                              disabled={sendingId !== null}
                             >
-                              <Mail className="h-4 w-4" strokeWidth={2} />Send
+                              <Mail className="h-4 w-4" strokeWidth={2} />
+                              {sendingId === n.id ? 'Sending...' : 'Send'}
                             </button>
                             <button
                               className="btn btn-outline btn-icon"

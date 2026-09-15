@@ -108,7 +108,8 @@ const notificationSchema = new Schema({
   message: { type: String, required: true },
   link: String,
   refId: { type: Schema.Types.ObjectId },
-  read: { type: Boolean, default: false },
+  // HR users who have read this notification; read state is tracked per user
+  read_by: { type: [{ type: Schema.Types.ObjectId, ref: 'User' }], default: [] },
 }, { timestamps: { createdAt: true, updatedAt: false } });
 
 notificationSchema.index({ type: 1, refId: 1 }, { unique: true });

@@ -9,6 +9,29 @@ body {
   @apply bg-zinc-100 text-zinc-900;
 }
 
+/* Staggered entrance for KPI cards and chart rows (set animation-delay inline per item) */
+@keyframes fadeSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-slide-in {
+  animation: fadeSlideIn 0.4s ease-out backwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-slide-in {
+    animation: none;
+  }
+}
+
 @layer components {
 
   /* Surfaces */
@@ -51,7 +74,7 @@ body {
   }
 
   .card-accent-slate {
-    @apply border-t-[3px] border-t-slate-400;
+    @apply border-t-[3px] border-t-zinc-400;
   }
 
   .section-heading {

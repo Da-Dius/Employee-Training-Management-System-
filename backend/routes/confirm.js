@@ -54,7 +54,7 @@ async function recordDeclineNotification(nominee, training) {
           refId: nominee._id,
           message: `${nominee.name} declined the nomination for ${training.name}`,
           link: `/trainings/${training._id}`,
-          read: false,
+          read_by: [],
         },
       },
       { upsert: true }

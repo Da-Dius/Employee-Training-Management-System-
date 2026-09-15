@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   BookText,
@@ -17,6 +17,7 @@ import {
 import * as api from '../api/client';
 import { formatDate } from '../utils';
 import { useAuth } from '../context/AuthContext';
+import { AnimatedValue, KpiSkeleton } from '../components/Kpi';
 
 // Using a 'theme' string instead of hardcoded hex colors to map to Tailwind classes
 const CARD_CONFIG = [
@@ -27,9 +28,6 @@ const CARD_CONFIG = [
   { key: 'totalAttendees', label: 'Total Attendees', Icon: UserCheck, theme: 'brand' },
   { key: 'totalDeclined', label: 'Declined', Icon: UserX, theme: 'dark' },
 ];
-
-const prefersReducedMotion =
-  typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
 function formatKES(amount) {
   const n = Number(amount) || 0;
@@ -58,31 +56,6 @@ function relativeDate(dateStr) {
   if (diff > 1) return `In ${diff} days`;
   if (diff < -1) return `${Math.abs(diff)} days ago`;
   return formatDate(dateStr);
-}
-
-function AnimatedNumber({ value, duration = 700 }) {
-  const [display, setDisplay] = useState(prefersReducedMotion ? value : 0);
-  const startRef = useRef(null);
-
-  useEffect(() => {
-    if (prefersReducedMotion) {
-      setDisplay(value);
-      return;
-    }
-    startRef.current = null;
-    let frame;
-    const step = (timestamp) => {
-      if (startRef.current === null) startRef.current = timestamp;
-      const progress = Math.min((timestamp - startRef.current) / duration, 1);
-      const eased = 1 - Math.pow(1 - progress, 3);
-      setDisplay(Math.round(eased * value));
-      if (progress < 1) frame = requestAnimationFrame(step);
-    };
-    frame = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(frame);
-  }, [value]);
-
-  return <>{display}</>;
 }
 
 function TrainingRow({ t, tone, index }) {
@@ -115,20 +88,6 @@ function TrainingRow({ t, tone, index }) {
       </div>
       {tone === 'upcoming' && t.cost > 0 && <div className="mt-1 text-xs text-zinc-400">{formatKES(t.cost)}</div>}
     </Link>
-  );
-}
-
-function KpiSkeleton() {
-  return (
-    <div className="card animate-pulse">
-      <div className="card-body flex items-center justify-between gap-3">
-        <div className="w-full">
-          <div className="mb-2 h-3 w-20 rounded bg-zinc-200" />
-          <div className="h-8 w-12 rounded bg-zinc-200" />
-        </div>
-        <div className="h-10 w-10 shrink-0 rounded-lg bg-zinc-200" />
-      </div>
-    </div>
   );
 }
 
@@ -194,16 +153,6 @@ export default function DashboardPage() {
 
   return (
     <>
-      <style>{`
-        @keyframes fadeSlideIn {
-          from { opacity: 0; transform: translateY(6px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .animate-fade-slide-in {
-          animation: fadeSlideIn 0.4s ease-out backwards;
-        }
-      `}</style>
-
       <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-zinc-900 sm:text-3xl">
@@ -221,7 +170,7 @@ export default function DashboardPage() {
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-6">
         {!stats
-          ? CARD_CONFIG.map(({ key }) => <KpiSkeleton key={key} />)
+          ? CARD_CONFIG.map(({ key }) => <KpiSkeleton key={key} size="lg" />)
           : CARD_CONFIG.map(({ key, label, Icon, theme, to }, i) => {
             const isBrand = theme === 'brand';
             const colorClass = isBrand ? 'text-brand' : 'text-zinc-900';
@@ -233,7 +182,7 @@ export default function DashboardPage() {
                 <div className="min-w-0">
                   <div className="mb-1 text-xs font-medium text-zinc-500">{label}</div>
                   <div className="text-3xl font-bold tracking-tight text-zinc-900">
-                    <AnimatedNumber value={stats[key]} />
+                    <AnimatedValue value={stats[key]} />
                   </div>
                   {key === 'totalAttendees' && confirmedRatio !== null && (
                     <div className="mt-2 w-24">

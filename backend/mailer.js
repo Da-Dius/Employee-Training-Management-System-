@@ -6,6 +6,14 @@ const transporter = nodemailer.createTransport({
         user: process.env.GMAIL_USER,
         pass: process.env.GMAIL_APP_PASSWORD,
     },
+    // Reuse SMTP connections instead of opening a new one per email
+    pool: true,
+    maxConnections: 3,
+    // Fail within seconds on a stuck connection, so HR sees "email could not be sent" instead of
+    // the request hanging until the browser or load balancer gives up (defaults are minutes).
+    connectionTimeout: 10 * 1000,
+    greetingTimeout: 10 * 1000,
+    socketTimeout: 20 * 1000,
 });
 
 function escapeHtml(str) {

@@ -163,9 +163,7 @@ router.delete('/:id', requireAdmin, asyncHandler(async (req, res) => {
         });
     }
 
-    res.json({
-        message: 'Employee deleted successfully',
-    });
+    res.status(204).end();
 }));
 
 module.exports = router;

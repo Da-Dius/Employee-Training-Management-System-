@@ -20,6 +20,7 @@ import * as api from '../api/client';
 import { CATEGORIES, formatDate, formatDateRange, nominationBadgeClass, attendanceBadgeClass } from '../utils';
 import Spinner from '../components/Spinner';
 import Modal from '../components/Modal';
+import { AnimatedValue, KpiSkeleton } from '../components/Kpi';
 
 function formatKESShort(amount) {
   const n = Number(amount) || 0;
@@ -172,50 +173,6 @@ function attendanceRate(row) {
 }
 
 const emptyFilters = { month: currentMonth(), category: '', department: '', name: '' };
-
-const prefersReducedMotion =
-  typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-
-// Counts up from 0 to `value` once on mount, formatting each intermediate frame with
-// `format` (defaults to a plain integer). Skips animation for prefers-reduced-motion.
-function AnimatedValue({ value, format = (n) => n, duration = 700 }) {
-  const [display, setDisplay] = useState(prefersReducedMotion ? value : 0);
-  const startRef = useRef(null);
-
-  useEffect(() => {
-    if (prefersReducedMotion) {
-      setDisplay(value);
-      return;
-    }
-    startRef.current = null;
-    let frame;
-    const step = (timestamp) => {
-      if (startRef.current === null) startRef.current = timestamp;
-      const progress = Math.min((timestamp - startRef.current) / duration, 1);
-      const eased = 1 - Math.pow(1 - progress, 3);
-      setDisplay(eased * value);
-      if (progress < 1) frame = requestAnimationFrame(step);
-    };
-    frame = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(frame);
-  }, [value]);
-
-  return <>{format(display)}</>;
-}
-
-function KpiSkeleton() {
-  return (
-    <div className="card animate-pulse">
-      <div className="card-body flex items-center justify-between gap-3">
-        <div className="w-full">
-          <div className="mb-2 h-3 w-20 rounded bg-zinc-200" />
-          <div className="h-6 w-14 rounded bg-zinc-200" />
-        </div>
-        <div className="h-9 w-9 shrink-0 rounded-lg bg-zinc-200" />
-      </div>
-    </div>
-  );
-}
 
 /*
  * Training Activity
@@ -546,16 +503,6 @@ export default function ReportsPage() {
 
   return (
     <>
-      <style>{`
-        @keyframes fadeSlideIn {
-          from { opacity: 0; transform: translateY(6px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .animate-fade-slide-in {
-          animation: fadeSlideIn 0.4s ease-out backwards;
-        }
-      `}</style>
-
       {/* Page heading */}
       <div className="mb-6 flex flex-wrap items-center justify-between gap-2">
         <div>

@@ -1,7 +1,14 @@
 const BASE = '/api';
 
 async function request(url, options = {}) {
-  const res = await fetch(url, options);
+  let res;
+  try {
+    res = await fetch(url, options);
+  } catch {
+    // fetch only throws when no response arrived at all (browsers word this "Load failed" or
+    // "Failed to fetch"), so say that plainly instead
+    throw new Error("Couldn't reach the server. Check your connection and try again.");
+  }
 
   if (res.status === 204) return null;
 
