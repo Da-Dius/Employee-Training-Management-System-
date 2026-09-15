@@ -20,7 +20,7 @@ async function main() {
   const normalizedUsername = username.trim().toLowerCase();
   const result = await User.updateOne(
     { username: normalizedUsername },
-    { $set: { passwordHash: hashPassword(newPassword) } }
+    { $set: { password_hash: hashPassword(newPassword) }, $inc: { session_version: 1 } }
   );
 
   if (result.matchedCount === 0) {

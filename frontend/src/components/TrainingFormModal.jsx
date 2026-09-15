@@ -76,7 +76,8 @@ export default function TrainingFormModal({ show, onClose, onSave, training }) {
 
       fd.append('venue', form.venue);
       fd.append('cost', String(parseFloat(form.cost) || 0));
-      if (form.per_diem) fd.append('per_diem', 'true');
+      // Always send per_diem so unchecking it on edit actually clears it
+      fd.append('per_diem', form.per_diem ? 'true' : 'false');
       fd.append('service_entry', form.service_entry);
       fd.append('trainer_name', form.trainer_name);
       fd.append('lpo_number', form.lpo_number);
@@ -95,7 +96,7 @@ export default function TrainingFormModal({ show, onClose, onSave, training }) {
     <Modal
       show={show}
       onClose={onClose}
-      title={training ? 'Edit Training' : 'New Training'}
+      title={training ? 'Edit Program' : 'New Program'}
       size="lg"
       footer={
         <>
@@ -103,14 +104,14 @@ export default function TrainingFormModal({ show, onClose, onSave, training }) {
             Cancel
           </button>
           <button type="submit" form="trainingForm" className="btn btn-primary" disabled={saving}>
-            {saving ? 'Saving...' : (training ? 'Save Changes' : 'Create Training')}
+            {saving ? 'Saving...' : (training ? 'Save Changes' : 'Create Program')}
           </button>
         </>
       }
     >
       <form id="trainingForm" onSubmit={handleSubmit} className="grid grid-cols-1 gap-4 sm:grid-cols-12">
         <div className="sm:col-span-8">
-          <label className="form-label">Training Name *</label>
+          <label className="form-label">Program Name *</label>
           <input
             type="text"
             className="form-input"
@@ -166,7 +167,7 @@ export default function TrainingFormModal({ show, onClose, onSave, training }) {
         </div>
 
         <div className="sm:col-span-6">
-          <label className="form-label">Name of Trainer</label>
+          <label className="form-label">Name of Facilitator</label>
           <input
             type="text"
             className="form-input"
@@ -186,7 +187,7 @@ export default function TrainingFormModal({ show, onClose, onSave, training }) {
         </div>
 
         <div className="sm:col-span-3">
-          <label className="form-label">Cost of Training</label>
+          <label className="form-label">Program Cost</label>
           <input
             type="number"
             step="0.01"

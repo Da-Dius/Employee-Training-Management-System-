@@ -1,6 +1,7 @@
-import { Navigate, Outlet, Routes, Route } from 'react-router-dom';
+import { Navigate, Outlet, Routes, Route, useLocation } from 'react-router-dom';
 import NavBar from './components/NavBar';
 import ProtectedRoute from './components/ProtectedRoute';
+import ErrorBoundary from './components/ErrorBoundary';
 import LoginPage from './routes/LoginPage';
 import SignupPage from './routes/SignupPage';
 import DashboardPage from './routes/DashboardPage';
@@ -10,14 +11,18 @@ import AttendancePage from './routes/AttendancePage';
 import EmployeesPage from './routes/EmployeesPage';
 import ReportsPage from './routes/ReportsPage';
 import UsersPage from './routes/UsersPage';
-import DepartmentsPage from './routes/DepartmentsPage'; // <-- Added
+import DepartmentsPage from './routes/DepartmentsPage';
 
 function Layout() {
+  const location = useLocation();
   return (
     <>
       <NavBar />
       <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
-        <Outlet />
+        {/* Keyed by path so navigating away from a crashed page clears the error */}
+        <ErrorBoundary key={location.pathname}>
+          <Outlet />
+        </ErrorBoundary>
       </main>
     </>
   );
@@ -36,7 +41,7 @@ export default function App() {
           <Route path="/trainings/:id/attendance" element={<AttendancePage />} />
           <Route path="/employees" element={<EmployeesPage />} />
           <Route path="/reports" element={<ReportsPage />} />
-          <Route path="/departments" element={<DepartmentsPage />} /> {/* <-- Added */}
+          <Route path="/departments" element={<DepartmentsPage />} />
           <Route path="/users" element={<UsersPage />} />
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
         </Route>

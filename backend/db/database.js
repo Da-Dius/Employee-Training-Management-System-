@@ -99,6 +99,8 @@ const userSchema = new Schema({
   name: { type: String, required: true },
   password_hash: { type: String, required: true },
   role: { type: String, enum: ['admin', 'staff'], default: 'staff' },
+  // Incremented on password reset; sessions store the value they started with
+  session_version: { type: Number, default: 0 },
 }, { timestamps: { createdAt: true, updatedAt: false } });
 
 const notificationSchema = new Schema({
@@ -110,6 +112,10 @@ const notificationSchema = new Schema({
 }, { timestamps: { createdAt: true, updatedAt: false } });
 
 notificationSchema.index({ type: 1, refId: 1 }, { unique: true });
+
+// One nomination per employee per training; also speeds up every lookup by training
+nomineeSchema.index({ training: 1, employee_number: 1 }, { unique: true });
+evidenceSchema.index({ training: 1 });
 
 const settingSchema = new Schema({
   key: { type: String, required: true, unique: true },
@@ -131,6 +137,11 @@ const User = mongoose.model('User', userSchema);
 const Notification = mongoose.model('Notification', notificationSchema);
 const Setting = mongoose.model('Setting', settingSchema);
 const Department = mongoose.model('Department', departmentSchema);
+
+// Index builds fail quietly otherwise, e.g. if existing data already holds duplicate nominees
+Nominee.on('index', (err) => {
+  if (err) console.error('Nominee index build failed (check for duplicate nominees on a training):', err.message);
+});
 
 // ---------- Helpers ----------
 

@@ -1,123 +1,135 @@
 # HRCD Employee Training Management System
 
-A comprehensive training management system for the Human Resources and Career Development department. This platform facilitates training scheduling, nominee tracking, automated attendance confirmations, and financial reporting.
+Training management for the Human Resources and Career Development department: training schedules and costs, nominees, emailed accept/decline and attendance confirmations, attendance registers, evidence files, and monthly reports with Excel export.
 
-## Tech Stack
+## Tech stack
 
-- **Backend:** Node.js + Express
-- **Database:** MongoDB (via Mongoose)
-- **Frontend:** React + Vite, styled with Tailwind CSS v4 (Lucide React for icons)
-- **File Uploads:** Multer (stored under `backend/uploads/`)
-- **Exports:** ExcelJS for spreadsheet generation
+- **Backend:** Node.js + Express 4
+- **Database:** MongoDB (Mongoose 9); uploaded files are stored in MongoDB GridFS
+- **Frontend:** React 19 + Vite 8, Tailwind CSS v4, Lucide icons
+- **Email:** Nodemailer with a Gmail app password
+- **Exports:** ExcelJS
 
-## Project Structure
+Requires Node.js 20.19+ (or 22.12+) and pnpm.
+
+## Project structure
 
 ```text
 hrms/
 ├── backend/
-│   ├── server.js                  # Express app entry point & static file server
-│   ├── db/
-│   │   └── database.js            # MongoDB connection and schema configurations
-│   ├── middleware/
-│   │   └── requireAuth.js         # Session-check middleware for HR-only API routes
-│   ├── routes/                    # API resources (auth, users, trainings, nominees, etc.)
-│   ├── scripts/
-│   │   ├── create-user.js         # CLI to bootstrap the first HR admin login
-│   │   └── reset-password.js      # CLI to manually reset an HR user's password
-│   ├── public/
-│   │   └── confirm.html           # Unauthenticated portal for employee confirmations
-│   └── uploads/                   # Local storage for evidence files and LPO attachments
+│   ├── server.js             # Express app: API routes, sessions, serves the built frontend
+│   ├── mailer.js             # Nomination and attendance emails
+│   ├── db/database.js        # MongoDB connection, schemas, models and helpers
+│   ├── lib/http.js           # Shared route helpers
+│   ├── middleware/           # requireAuth, requireAdmin, rate limiters
+│   ├── routes/               # auth, users, trainings, nominees, evidence, reports, ...
+│   ├── storage/              # GridFS file storage and upload rules
+│   ├── scripts/              # create-user, reset-password, migrate-uploads-to-gridfs
+│   └── public/confirm.html   # Employee confirmation page (no login needed)
 └── frontend/
-    ├── vite.config.js             # Dev-server proxy configuration
+    ├── vite.config.js        # Dev server proxy to the backend
     └── src/
-        ├── main.jsx, App.jsx      # React entry point and routing
-        ├── api/client.js          # Fetch wrappers for the backend API
-        ├── context/               # AuthContext (session state) and ToastContext
-        ├── components/            # Reusable UI (NavBar, Modals, Forms)
-        └── routes/                # Main pages (Dashboard, Trainings, Reports, Users)
+        ├── api/client.js     # API calls
+        ├── context/          # Signed-in user and toast messages
+        ├── components/       # Modals, navigation, pagination, error boundary
+        └── routes/           # Pages
+```
 
+`confirm.html` is a plain page served by the backend. Nominees open it from the link in their email to accept or decline, and again after the training to confirm whether they attended.
 
-`confirm.html` is a plain static HTML page (not part of the React app) that employees
-open via a link to confirm their own training attendance, without needing an HR login.
-It's served by the backend directly, at the same path in both dev and production.
-``` 
-## Running it - 
- 
-### Local Development
+## Environment variables
 
-The development environment runs the backend and frontend on separate ports, using Vite to proxy API requests.
+Create `backend/.env` (it is gitignored):
 
-# Terminal 1 - Start the Backend API (Port 3000)
+| Variable | Purpose |
+|---|---|
+| `MONGODB_URI` | MongoDB connection string |
+| `SESSION_SECRET` | Signs session cookies |
+| `GMAIL_USER` | Gmail address that sends the emails |
+| `GMAIL_APP_PASSWORD` | Gmail app password for that address |
+| `APP_BASE_URL` | Public URL of the app, used in email links |
+| `NODE_ENV` | `development` locally, `production` when deployed |
+| `PORT` | Optional, defaults to 3000 |
+
+## Local development
+
+Run the backend and the frontend in two terminals:
+
+```bash
 cd backend
 pnpm install
 pnpm run dev
+```
 
-# Terminal 2 - Start the React App (Port 5173)
+```bash
 cd frontend
 pnpm install
 pnpm run dev
-
-Access the application at http://localhost:5173.
-
 ```
-```
-### Production Deployment 
 
-In production, the Node.js backend directly serves the compiled React static files.
+Open http://localhost:5173. Vite forwards `/api` and `/confirm.html` to the backend on port 3000.
 
-# 1. Build the frontend
+## Production
+
+The backend serves the built frontend from `frontend/dist`:
+
+```bash
 cd frontend
 pnpm install
 pnpm run build
-
-# 2. Start the backend server
 cd ../backend
 pnpm install
 pnpm start
-
-Access the application at http://localhost:3000.
-
 ```
 
-```
-### First-time setup: 
+Open http://localhost:3000.
 
-Administrative CLI Scripts:
+### Render
 
-- There is no public sign-up for the very first account. You must bootstrap the initial Admin account via the CLI. Ensure your MONGODB_URI is set in your .env file first.
+- **Build command:** `cd frontend && pnpm install && pnpm run build && cd ../backend && pnpm install`
+- **Start command:** `cd backend && node server.js`
+- **Environment:** every variable above, with `NODE_ENV=production`
 
-Create the first Admin user:
+## First-time setup
+
+The first account created at `/signup` needs no invite code and becomes an admin. You can also create accounts from the command line — run scripts from `backend/` so `.env` is found:
 
 ```bash
-cd backend
 node scripts/create-user.js <username> <password> <full name> [--admin]
-
-```
-Example:
-
-```bash
-node scripts/create-user.js maurice "MyStrongPass1" Maurice Admin
 ```
 
-### Emergency Password Reset:
-If all admins are locked out, you can force a password reset via the CLI:
+Admins share the invite code shown on **HR Users** so colleagues can sign up as staff.
 
-- cd backend
+### Emergency password reset
+
 ```bash
 node scripts/reset-password.js <username> <new-password>
 ```
 
-### Core Features
-Role-Based Authentication: HR staff utilize cookie-based sessions. Admins can manage staff accounts and generate self-service invite codes for new HR team members.
+This also signs the user out of every existing session.
 
-Training & Nominee Management: Track training schedules, venues, and associated costs. Assign employees to trainings and track their departmental affiliations.
+### Moving older uploads into the database
 
-Automated Employee Confirmations: Nominees receive a link (confirm.html?token=...) allowing them to accept or decline attendance without requiring an HR login.
+Files uploaded before storage moved to GridFS were saved in `backend/uploads/`. Copy them across once; it is safe to re-run:
 
-Attendance Workflows: Post-training, HR can trigger automated emails asking accepted nominees to verify their attendance, or manually mark attendance via the register.
+```bash
+node scripts/migrate-uploads-to-gridfs.js
+```
 
-Dynamic Replacements: When a nominee declines, HR can seamlessly swap them with a replacement. The original declination is retained for audit purposes.
+## Roles
 
-Evidence Management: Attach compliance documents, LPOs, and post-training evidence (PDF, Excel, images) up to 25MB per file.
+| Action | Staff | Admin |
+|---|:---:|:---:|
+| Create and edit trainings, nominees and employees; mark attendance; upload evidence; run reports | ✓ | ✓ |
+| Remove a nominee from a training | ✓ | ✓ |
+| Delete trainings, employees and evidence files | | ✓ |
+| Manage departments, HR users and the invite code | | ✓ |
 
-Financial & Participation Reporting: Generate real-time analytics on attendance rates, departmental participation, and cost-per-attendee. Export to Excel.
+## Features
+
+- **Trainings:** dates, venue, trainer, cost, service entry, per diem, LPO number and attachment.
+- **Nominees:** add from the employee directory, or import an `.xlsx` sheet with employee numbers in the first column (header row optional). A nominee who declines can be replaced; their declined record is kept.
+- **Confirmations:** nominees accept or decline from an email link, then confirm attendance after the training.
+- **Attendance register:** mark attendance from the training's start date, or print the register.
+- **Evidence:** attach PDFs, Office files, images, CSV or text files, up to 25 MB each.
+- **Reports:** monthly training, attendance and cost figures by category and department, with Excel exports.

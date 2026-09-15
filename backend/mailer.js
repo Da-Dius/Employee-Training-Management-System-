@@ -23,13 +23,13 @@ function whenLabel(training_date, training_end_date) {
         : `on ${training_date}`;
 }
 
-async function sendNominationEmail({ to, nomineeName, trainingName, training_date, training_end_date, confirmUrl }) {
-    const when = whenLabel(training_date, training_end_date);
+async function sendNominationEmail({ to, nomineeName, trainingName, trainingDate, trainingEndDate, confirmUrl }) {
+    const when = whenLabel(trainingDate, trainingEndDate);
 
     await transporter.sendMail({
         from: `"HRCD Training Management" <${process.env.GMAIL_USER}>`,
         to,
-        subject: `Training nomination — please accept or decline: ${trainingName}`,
+        subject: `Program nomination — please accept or decline: ${trainingName}`,
         text:
             `Hi ${nomineeName},\n\n` +
             `You have been nominated for "${trainingName}" ${when}.\n` +
@@ -46,8 +46,8 @@ async function sendNominationEmail({ to, nomineeName, trainingName, training_dat
     });
 }
 
-async function sendAttendanceCheckEmail({ to, nomineeName, trainingName, training_date, training_end_date, confirmUrl }) {
-    const when = whenLabel(training_date, training_end_date);
+async function sendAttendanceCheckEmail({ to, nomineeName, trainingName, trainingDate, trainingEndDate, confirmUrl }) {
+    const when = whenLabel(trainingDate, trainingEndDate);
 
     await transporter.sendMail({
         from: `"HRCD Training Management" <${process.env.GMAIL_USER}>`,

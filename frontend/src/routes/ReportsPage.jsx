@@ -17,7 +17,7 @@ import {
   Users2,
 } from 'lucide-react';
 import * as api from '../api/client';
-import { CATEGORIES, formatDate } from '../utils';
+import { CATEGORIES, formatDate, formatDateRange, nominationBadgeClass, attendanceBadgeClass } from '../utils';
 import Spinner from '../components/Spinner';
 import Modal from '../components/Modal';
 
@@ -156,8 +156,9 @@ function DepartmentParticipation({ stats }) {
   );
 }
 
+// Nairobi calendar month, matching how the server dates trainings (UTC is 3 hours behind)
 function currentMonth() {
-  return new Date().toISOString().slice(0, 7);
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Nairobi' }).format(new Date()).slice(0, 7);
 }
 
 function formatKES(amount) {
@@ -325,7 +326,7 @@ function TrainingDetailModal({ trainingId, onClose }) {
   }, [trainingId]);
 
   return (
-    <Modal show={!!trainingId} onClose={onClose} title={training ? training.name : 'Training Details'} size="lg">
+    <Modal show={!!trainingId} onClose={onClose} title={training ? training.name : 'Program Details'} size="lg">
       {error && <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
       {!error && !training && (
         <div className="flex justify-center py-8">
@@ -340,7 +341,7 @@ function TrainingDetailModal({ trainingId, onClose }) {
               <div className="font-medium text-zinc-900">{training.category}</div>
             </div>
             <div>
-              <div className="text-xs text-zinc-500">Training Dates</div>
+              <div className="text-xs text-zinc-500">Program Dates</div>
               <div className="font-medium text-zinc-900">{formatDateRange(training.training_date, training.training_end_date)}</div>
             </div>
             <div>
@@ -353,8 +354,14 @@ function TrainingDetailModal({ trainingId, onClose }) {
             </div>
             <div>
               <div className="text-xs text-zinc-500">Paid/Free</div>
-              <span className={training.paid ? 'badge badge-green' : 'badge badge-slate'}>
-                {training.paid ? 'Paid' : 'Free'}
+              <span className={training.cost > 0 ? 'badge badge-green' : 'badge badge-slate'}>
+                {training.cost > 0 ? 'Paid' : 'Free'}
+              </span>
+            </div>
+            <div>
+              <div className="text-xs text-zinc-500">Service Entry</div>
+              <span className={training.service_entry === 'Paid' ? 'badge badge-green' : 'badge badge-amber'}>
+                {training.service_entry}
               </span>
             </div>
             <div>
@@ -391,7 +398,7 @@ function TrainingDetailModal({ trainingId, onClose }) {
                   {nominees && nominees.length === 0 && (
                     <tr>
                       <td colSpan={8} className="py-4 text-center text-zinc-400">
-                        No nominees for this training.
+                        No nominees for this program.
                       </td>
                     </tr>
                   )}
@@ -493,7 +500,7 @@ export default function ReportsPage() {
 
   const summaryCards = [
     {
-      label: 'Total Trainings',
+      label: 'Total Programs',
       raw: rows ? rows.length : 0,
       format: (n) => Math.round(n),
       Icon: BookText,
@@ -528,7 +535,7 @@ export default function ReportsPage() {
       theme: 'brand',
     },
     {
-      label: 'Total Training Cost',
+      label: 'Total Program Cost',
       raw: totals.cost,
       format: (n) => formatKES(n),
       Icon: Wallet,
@@ -553,7 +560,7 @@ export default function ReportsPage() {
       <div className="mb-6 flex flex-wrap items-center justify-between gap-2">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-zinc-900 sm:text-3xl">Monthly Report</h1>
-          <p className="mt-1 text-sm text-zinc-500">Review training activity, attendance, and training costs.</p>
+          <p className="mt-1 text-sm text-zinc-500">Review program activity, attendance, and program costs.</p>
         </div>
       </div>
 
@@ -596,13 +603,13 @@ export default function ReportsPage() {
               />
             </div>
             <div>
-              <label className="form-label">Training Name</label>
+              <label className="form-label">Program Name</label>
               <div className="relative">
                 <Search className="pointer-events-none absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2 text-zinc-400" />
                 <input
                   type="text"
                   className="form-input pl-8"
-                  placeholder="Search training"
+                  placeholder="Search program"
                   value={filters.name}
                   onChange={(e) => setFilters({ ...filters, name: e.target.value })}
                 />
@@ -668,9 +675,9 @@ export default function ReportsPage() {
             <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h2 className="flex items-center gap-2 text-base font-semibold text-zinc-900">
-                  <BarChart3 className="h-[18px] w-[18px]" strokeWidth={2} />Training Activity
+                  <BarChart3 className="h-[18px] w-[18px]" strokeWidth={2} />Program Activity
                 </h2>
-                <p className="mt-1 text-xs text-zinc-500">Attendance progress for the selected training period.</p>
+                <p className="mt-1 text-xs text-zinc-500">Attendance progress for the selected period.</p>
               </div>
               <div className="flex flex-wrap items-center gap-4 text-xs text-zinc-500">
                 <span className="flex items-center gap-1.5">
@@ -707,7 +714,7 @@ export default function ReportsPage() {
               <h2 className="mb-1 flex items-center gap-2 text-sm font-semibold text-zinc-900">
                 <Wallet className="h-4 w-4" strokeWidth={2} />Cost per Attendee
               </h2>
-              <p className="mb-4 text-xs text-zinc-500">Training spend divided by actual attendees, by category.</p>
+              <p className="mb-4 text-xs text-zinc-500">Program spend divided by actual attendees, by category.</p>
               <CostPerAttendeeByCategory rows={rows} />
             </div>
           </div>
@@ -730,7 +737,7 @@ export default function ReportsPage() {
           <table className="table-clean">
             <thead>
               <tr>
-                <th>Training Name</th>
+                <th>Program Name</th>
                 <th>Category</th>
                 <th>Date</th>
                 <th>Venue</th>
@@ -741,6 +748,7 @@ export default function ReportsPage() {
                 <th className="text-center">Attendance Rate</th>
                 <th>Cost</th>
                 <th>Paid/Free</th>
+                <th>Service Entry</th>
                 <th>Per Diem</th>
                 <th className="text-right">Actions</th>
               </tr>
@@ -748,14 +756,14 @@ export default function ReportsPage() {
             <tbody>
               {error && (
                 <tr>
-                  <td colSpan={13} className="py-8 text-center text-red-600">
+                  <td colSpan={14} className="py-8 text-center text-red-600">
                     {error}
                   </td>
                 </tr>
               )}
               {!error && rows === null && (
                 <tr>
-                  <td colSpan={13} className="py-8 text-center">
+                  <td colSpan={14} className="py-8 text-center">
                     <Spinner small />
                   </td>
                 </tr>
@@ -788,6 +796,9 @@ export default function ReportsPage() {
                         <span className={r.paid ? 'badge badge-green' : 'badge badge-slate'}>{r.paid ? 'Paid' : 'Free'}</span>
                       </td>
                       <td>
+                        <span className={r.service_entry === 'Paid' ? 'badge badge-green' : 'badge badge-amber'}>{r.service_entry}</span>
+                      </td>
+                      <td>
                         <span className={r.per_diem ? 'badge badge-green' : 'badge badge-slate'}>{r.per_diem ? 'Yes' : 'No'}</span>
                       </td>
                       <td className="text-right">
@@ -809,7 +820,7 @@ export default function ReportsPage() {
                   <td className="text-center text-zinc-600">{totals.declined}</td>
                   <td className="text-center">{overallRate.toFixed(1)}%</td>
                   <td className="whitespace-nowrap">{formatKES(totals.cost)}</td>
-                  <td colSpan={3}></td>
+                  <td colSpan={4}></td>
                 </tr>
               </tfoot>
             )}
@@ -821,8 +832,8 @@ export default function ReportsPage() {
                 <Inbox className="h-6 w-6" strokeWidth={2} />
               </span>
               <div>
-                <div className="font-medium text-zinc-700">No training records found</div>
-                <div className="mt-1 text-sm text-zinc-500">There are no training activities matching the selected filters.</div>
+                <div className="font-medium text-zinc-700">No program records found</div>
+                <div className="mt-1 text-sm text-zinc-500">There are no program activities matching the selected filters.</div>
               </div>
               <button className="btn btn-outline btn-sm" onClick={handleReset}>
                 <RotateCcw className="h-4 w-4" strokeWidth={2} />Clear Filters

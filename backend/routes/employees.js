@@ -1,11 +1,9 @@
 const express = require('express');
 const { Employee } = require('../db/database');
+const requireAdmin = require('../middleware/requireAdmin');
+const { asyncHandler, isValidId, escapeRegex } = require('../lib/http');
 
 const router = express.Router();
-
-function asyncHandler(fn) {
-    return (req, res, next) => fn(req, res, next).catch(next);
-}
 
 // GET /api/employees
 router.get('/', asyncHandler(async (req, res) => {
@@ -14,7 +12,7 @@ router.get('/', asyncHandler(async (req, res) => {
     const filter = {};
 
     if (search) {
-        const searchRegex = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+        const searchRegex = new RegExp(escapeRegex(search), 'i');
 
         filter.$or = [
             { name: searchRegex },
@@ -24,10 +22,7 @@ router.get('/', asyncHandler(async (req, res) => {
     }
 
     if (department) {
-        filter.department = new RegExp(
-            department.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
-            'i'
-        );
+        filter.department = new RegExp(escapeRegex(department), 'i');
     }
 
     const employees = await Employee
@@ -46,7 +41,7 @@ router.get('/', asyncHandler(async (req, res) => {
 
 // GET /api/employees/:id
 router.get('/:id', asyncHandler(async (req, res) => {
-    const employee = await Employee.findById(req.params.id).lean();
+    const employee = isValidId(req.params.id) ? await Employee.findById(req.params.id).lean() : null;
 
     if (!employee) {
         return res.status(404).json({ error: 'Employee not found' });
@@ -99,6 +94,12 @@ router.post('/', asyncHandler(async (req, res) => {
 
 // PUT /api/employees/:id
 router.put('/:id', asyncHandler(async (req, res) => {
+    if (!isValidId(req.params.id)) {
+        return res.status(404).json({
+            error: 'Employee not found',
+        });
+    }
+
     const {
         name,
         employee_number,
@@ -138,7 +139,7 @@ router.put('/:id', asyncHandler(async (req, res) => {
             email: email?.trim() || '',
         },
         {
-            new: true,
+            returnDocument: 'after',
             runValidators: true,
         }
     );
@@ -152,9 +153,9 @@ router.put('/:id', asyncHandler(async (req, res) => {
     res.json(employee); // Global toJSON transformer will handle _id -> id
 }));
 
-// DELETE /api/employees/:id
-router.delete('/:id', asyncHandler(async (req, res) => {
-    const employee = await Employee.findByIdAndDelete(req.params.id);
+// DELETE /api/employees/:id (admin only)
+router.delete('/:id', requireAdmin, asyncHandler(async (req, res) => {
+    const employee = isValidId(req.params.id) ? await Employee.findByIdAndDelete(req.params.id) : null;
 
     if (!employee) {
         return res.status(404).json({

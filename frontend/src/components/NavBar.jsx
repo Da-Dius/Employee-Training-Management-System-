@@ -20,7 +20,7 @@ import { subscribeNotificationRefresh } from '../notificationBus';
 // Added Departments to the navigation
 const NAV_ITEMS = [
   { to: '/dashboard', label: 'Dashboard', Icon: LayoutDashboard },
-  { to: '/trainings', label: 'Trainings', Icon: BookText },
+  { to: '/trainings', label: 'Programs', Icon: BookText },
   { to: '/employees', label: 'Employees', Icon: Users },
   { to: '/departments', label: 'Departments', Icon: Building2 }, // <-- Added
   { to: '/reports', label: 'Reports', Icon: FileBarChart2 },

@@ -1,12 +1,9 @@
 const express = require('express');
 const { Training, Nominee, Notification, hasTrainingEnded } = require('../db/database');
 const confirmRateLimiter = require('../middleware/confirmRateLimiter');
+const { asyncHandler } = require('../lib/http');
 
 const router = express.Router();
-
-function asyncHandler(fn) {
-  return (req, res, next) => fn(req, res, next).catch(next);
-}
 
 function serializeNominee(doc) {
   return {
@@ -18,13 +15,12 @@ function serializeNominee(doc) {
     division: doc.division,
     section: doc.section,
     station_region: doc.station_region,
-    email: doc.email,
+    // email is deliberately omitted: the portal asks the nominee to type it as proof of identity
     nomination_status: doc.nomination_status || 'Pending',
     nomination_responded_at: doc.nomination_responded_at || null,
     decline_reason: doc.decline_reason || null,
     attendance_status: doc.attendance_status,
     attendance_self_reported: !!doc.attendance_self_reported,
-    confirmation_token: doc.confirmation_token,
     created_at: doc.createdAt,
   };
 }
@@ -98,7 +94,7 @@ router.post('/:token', confirmRateLimiter, asyncHandler(async (req, res) => {
   const ended = hasTrainingEnded(training.training_date, training.training_end_date);
 
   if (action === 'accept' || action === 'decline') {
-    if (ended) return res.status(409).json({ error: 'This training has already taken place.' });
+    if (ended) return res.status(409).json({ error: 'This program has already taken place.' });
 
     const updated = await Nominee.findOneAndUpdate(
       { _id: nominee._id, nomination_status: 'Pending' },
@@ -120,7 +116,7 @@ router.post('/:token', confirmRateLimiter, asyncHandler(async (req, res) => {
     return res.json({ ...serializeNominee(updated), already: false });
   }
 
-  if (!ended) return res.status(409).json({ error: 'This training has not finished yet.' });
+  if (!ended) return res.status(409).json({ error: 'This program has not finished yet.' });
 
   const updated = await Nominee.findOneAndUpdate(
     { _id: nominee._id, nomination_status: 'Accepted', attendance_self_reported: { $ne: true } },

@@ -1,16 +1,9 @@
 const express = require('express');
-const { mongoose, User, hashPassword, getInviteCode, regenerateInviteCode } = require('../db/database');
+const { User, hashPassword, getInviteCode, regenerateInviteCode } = require('../db/database');
 const requireAdmin = require('../middleware/requireAdmin');
+const { asyncHandler, isValidId } = require('../lib/http');
 
 const router = express.Router();
-
-function asyncHandler(fn) {
-  return (req, res, next) => fn(req, res, next).catch(next);
-}
-
-function isValidId(id) {
-  return mongoose.Types.ObjectId.isValid(id);
-}
 
 function serialize(doc) {
   return {
@@ -70,7 +63,15 @@ router.post('/:id/reset-password', requireAdmin, asyncHandler(async (req, res) =
     return res.status(400).json({ error: 'Password must be at least 8 characters' });
   }
 
-  await User.updateOne({ _id: req.params.id }, { password_hash: hashPassword(new_password) });
+  // Bumping session_version signs the user out of every existing session
+  await User.updateOne(
+    { _id: req.params.id },
+    { $set: { password_hash: hashPassword(new_password) }, $inc: { session_version: 1 } }
+  );
+  if (req.params.id === req.session.userId) {
+    // Keep the admin who reset their own password signed in on this device
+    req.session.sessionVersion = (req.session.sessionVersion ?? 0) + 1;
+  }
   res.status(204).end();
 }));
 

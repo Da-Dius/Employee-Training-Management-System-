@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, ClipboardCheck, Printer, CheckCheck } from 'lucide-react';
+import { ArrowLeft, ClipboardCheck, Printer, CheckCheck, CalendarClock } from 'lucide-react';
 import * as api from '../api/client';
-import { formatDateRange, nominationBadgeClass } from '../utils';
+import { formatDate, formatDateRange, nominationBadgeClass } from '../utils';
 import { useToast } from '../context/ToastContext';
 import Spinner from '../components/Spinner';
 
@@ -23,8 +23,12 @@ export default function AttendancePage() {
     }, [id]);
 
     const loadNominees = useCallback(async () => {
-        const rows = await api.listNominees(id);
-        setNominees(rows);
+        try {
+            const rows = await api.listNominees(id);
+            setNominees(rows);
+        } catch (e) {
+            setError(e.message);
+        }
     }, [id]);
 
     useEffect(() => {
@@ -75,6 +79,9 @@ export default function AttendancePage() {
         );
     }
 
+    // Attendance opens on the training's start date; the server enforces the same rule
+    const attendanceOpen = training.has_started;
+
     const declinedCount = nominees.filter((n) => n.nomination_status === 'Declined').length;
     const visible = nominees.filter((n) => n.nomination_status !== 'Declined');
 
@@ -95,7 +102,7 @@ export default function AttendancePage() {
                     to={`/trainings/${id}`}
                     className="inline-flex items-center gap-1 text-sm text-zinc-600 transition-colors hover:text-zinc-900"
                 >
-                    <ArrowLeft className="h-4 w-4" strokeWidth={2} />Back to Training
+                    <ArrowLeft className="h-4 w-4" strokeWidth={2} />Back to Program
                 </Link>
             </div>
 
@@ -109,11 +116,15 @@ export default function AttendancePage() {
                             </h1>
                             <div className="text-sm text-zinc-500">
                                 {training.name} &middot; {formatDateRange(training.training_date, training.training_end_date)}
-                                {training.venue ? ` \u00b7 ${training.venue}` : ''}
+                                {training.venue ? ` · ${training.venue}` : ''}
                             </div>
                         </div>
                         <div className="flex gap-2 print:hidden">
-                            <button className="btn btn-outline btn-sm" onClick={handleMarkAllAttended}>
+                            <button
+                                className="btn btn-outline btn-sm"
+                                onClick={handleMarkAllAttended}
+                                disabled={!attendanceOpen}
+                            >
                                 <CheckCheck className="h-4 w-4" strokeWidth={2} />Mark All Attended
                             </button>
                             <button className="btn btn-outline btn-sm" onClick={() => window.print()}>
@@ -121,6 +132,13 @@ export default function AttendancePage() {
                             </button>
                         </div>
                     </div>
+
+                    {!attendanceOpen && (
+                        <div className="mt-4 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 print:hidden">
+                            <CalendarClock className="h-4 w-4 shrink-0" strokeWidth={2} />
+                            Attendance can be recorded from {formatDate(training.training_date)}, when this program starts.
+                        </div>
+                    )}
 
                     <div className="mt-4 flex flex-wrap gap-3 print:hidden">
                         <span className="badge badge-green">Attended: {counts.attended}</span>
@@ -150,7 +168,7 @@ export default function AttendancePage() {
                             {visible.length === 0 && (
                                 <tr>
                                     <td colSpan={6} className="py-8 text-center text-zinc-400">
-                                        No nominees on this training yet.
+                                        No nominees on this program yet.
                                     </td>
                                 </tr>
                             )}
@@ -169,6 +187,7 @@ export default function AttendancePage() {
                                         <select
                                             className="form-input min-w-[9rem] py-1.5 text-xs"
                                             value={n.attendance_status}
+                                            disabled={!attendanceOpen}
                                             onChange={(e) => handleAttendanceChange(n.id, e.target.value)}
                                         >
                                             <option value="Pending">Pending</option>

@@ -6,7 +6,7 @@ const { MongoStore } = require('connect-mongo');
 const path = require('node:path');
 const fs = require('node:fs');
 
-const { initSessionSecret } = require('./db/database');
+const { mongoose, initSessionSecret } = require('./db/database');
 
 const requireAuth = require('./middleware/requireAuth');
 const authRouter = require('./routes/auth');
@@ -30,10 +30,15 @@ const frontendIndexHtml = path.join(frontendDist, 'index.html');
 
 app.set('trust proxy', 1);
 
+// 'simple' reads ?category[$ne]=x as a plain key, so query values can't become MongoDB operators
+app.set('query parser', 'simple');
 app.use(express.json());
 
 
 async function main() {
+  // Wait for the connection itself (up to the driver's 30s server selection timeout) rather than
+  // letting the first query fail after Mongoose's 10s buffer on a slow network.
+  await mongoose.connection.asPromise();
   const sessionSecret = await initSessionSecret();
 
   app.use(
@@ -86,8 +91,8 @@ async function main() {
       return res
         .status(404)
         .send(
-          'Frontend build not found. Run `npm run build` in frontend/ for production, ' +
-          'or use the Vite dev server (npm run dev in frontend/) during development.'
+          'Frontend build not found. Run `pnpm run build` in frontend/ for production, ' +
+          'or use the Vite dev server (pnpm run dev in frontend/) during development.'
         );
     }
     res.sendFile(frontendIndexHtml);
@@ -95,6 +100,8 @@ async function main() {
 
   app.use((err, req, res, next) => {
     console.error(err);
+    // e.g. a file download interrupted mid-stream: the response is already under way
+    if (res.headersSent) return next(err);
     if (err.code === 'LIMIT_FILE_SIZE' || (err.message && err.message.includes('File too large'))) {
       return res.status(413).json({ error: 'File too large (max 25MB)' });
     }

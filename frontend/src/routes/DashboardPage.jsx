@@ -20,9 +20,9 @@ import { useAuth } from '../context/AuthContext';
 
 // Using a 'theme' string instead of hardcoded hex colors to map to Tailwind classes
 const CARD_CONFIG = [
-  { key: 'totalTrainings', label: 'Total Trainings', Icon: BookText, theme: 'brand', to: '/trainings' },
-  { key: 'upcomingTrainings', label: 'Upcoming Trainings', Icon: CalendarDays, theme: 'dark', to: '/trainings' },
-  { key: 'completedTrainings', label: 'Completed Trainings', Icon: CheckCircle2, theme: 'brand', to: '/trainings' },
+  { key: 'totalTrainings', label: 'Total Programs', Icon: BookText, theme: 'brand', to: '/trainings' },
+  { key: 'upcomingTrainings', label: 'Upcoming Programs', Icon: CalendarDays, theme: 'dark', to: '/trainings' },
+  { key: 'completedTrainings', label: 'Completed Programs', Icon: CheckCircle2, theme: 'brand', to: '/trainings' },
   { key: 'totalNominees', label: 'Total Nominees', Icon: Users, theme: 'dark' },
   { key: 'totalAttendees', label: 'Total Attendees', Icon: UserCheck, theme: 'brand' },
   { key: 'totalDeclined', label: 'Declined', Icon: UserX, theme: 'dark' },
@@ -161,10 +161,9 @@ export default function DashboardPage() {
     api
       .listTrainings({})
       .then((rows) => {
-        const todayStr = new Date().toISOString().slice(0, 10);
-
+        // Use the server's status (Nairobi date, aware of end dates) so the panels match the KPI cards
         const next = rows
-          .filter((t) => t.training_date >= todayStr)
+          .filter((t) => t.status === 'Upcoming')
           .sort((a, b) => a.training_date.localeCompare(b.training_date))
           .slice(0, 4);
         setUpcoming(next);
@@ -216,7 +215,7 @@ export default function DashboardPage() {
           </p>
         </div>
         <Link to="/trainings" className="btn btn-primary">
-          <Plus className="h-4 w-4" strokeWidth={2} />New Training
+          <Plus className="h-4 w-4" strokeWidth={2} />New Program
         </Link>
       </div>
 
@@ -272,7 +271,7 @@ export default function DashboardPage() {
           <div className="card-body">
             <div className="section-heading">
               <h2 className="flex items-center gap-2 text-base font-semibold text-zinc-900">
-                <CalendarClock className="h-[18px] w-[18px]" strokeWidth={2} />Upcoming Trainings
+                <CalendarClock className="h-[18px] w-[18px]" strokeWidth={2} />Upcoming Programs
               </h2>
               <Link to="/trainings" className="inline-flex items-center gap-1 text-sm font-medium text-brand hover:underline">
                 View all<ArrowRight className="h-3.5 w-3.5" strokeWidth={2} />
@@ -285,7 +284,7 @@ export default function DashboardPage() {
               <div className="py-8 text-center text-sm text-zinc-400">
                 Nothing scheduled yet.{' '}
                 <Link to="/trainings" className="font-medium text-brand hover:underline">
-                  Create a training
+                  Create a program
                 </Link>{' '}
                 to see it here.
               </div>
@@ -315,7 +314,7 @@ export default function DashboardPage() {
             {recentCompleted === null && <PanelSkeleton />}
 
             {recentCompleted && recentCompleted.length === 0 && (
-              <div className="py-8 text-center text-sm text-zinc-400">No completed trainings yet.</div>
+              <div className="py-8 text-center text-sm text-zinc-400">No completed programs yet.</div>
             )}
 
             {recentCompleted && recentCompleted.length > 0 && (

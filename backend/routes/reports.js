@@ -1,16 +1,9 @@
 const express = require('express');
 const ExcelJS = require('exceljs');
 const { Training } = require('../db/database');
+const { asyncHandler, escapeRegex } = require('../lib/http');
 
 const router = express.Router();
-
-function asyncHandler(fn) {
-  return (req, res, next) => fn(req, res, next).catch(next);
-}
-
-function escapeRegex(str) {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
 
 async function buildMonthlyReport({ month, category, department, name } = {}) {
   const match = {};
@@ -31,9 +24,28 @@ async function buildMonthlyReport({ month, category, department, name } = {}) {
   ];
 
   if (department) {
-    pipeline.push({
-      $match: { 'nominees.department': { $regex: escapeRegex(department), $options: 'i' } },
-    });
+    // Keep only this department's nominees so the counts below reflect the filter,
+    // then drop trainings that have no nominees from that department.
+    pipeline.push(
+      {
+        $addFields: {
+          nominees: {
+            $filter: {
+              input: '$nominees',
+              as: 'n',
+              cond: {
+                $regexMatch: {
+                  input: { $ifNull: ['$$n.department', ''] },
+                  regex: escapeRegex(department),
+                  options: 'i',
+                },
+              },
+            },
+          },
+        },
+      },
+      { $match: { 'nominees.0': { $exists: true } } }
+    );
   }
 
   pipeline.push(
@@ -103,7 +115,9 @@ async function buildMonthlyReport({ month, category, department, name } = {}) {
     absentee_count: r.absentee_count,
     declined_count: r.declined_count,
     cost: r.cost,
-    paid: !!r.paid,
+    // "Paid or Free" is whether the training costs anything; Service Entry tracks the invoice
+    paid: (Number(r.cost) || 0) > 0,
+    service_entry: r.service_entry || 'Not Paid',
     per_diem: !!r.per_diem,
   }));
 }
@@ -227,17 +241,18 @@ router.get('/monthly/export', asyncHandler(async (req, res) => {
   const sheet = workbook.addWorksheet('Monthly Report');
 
   sheet.columns = [
-    { header: 'Training Name', key: 'name', width: 30 },
+    { header: 'Program Name', key: 'name', width: 30 },
     { header: 'Category', key: 'category', width: 16 },
-    { header: 'Training Date', key: 'training_date', width: 15 },
+    { header: 'Program Date', key: 'training_date', width: 15 },
     { header: 'Venue', key: 'venue', width: 20 },
     { header: 'Nominees', key: 'nominee_count', width: 10 },
     { header: 'Attendees', key: 'attendee_count', width: 10 },
     { header: 'Absentees', key: 'absentee_count', width: 10 },
     { header: 'Declined', key: 'declined_count', width: 10 },
     { header: 'Attendance Rate', key: 'attendance_rate', width: 14 },
-    { header: 'Cost of Training', key: 'cost', width: 15 },
+    { header: 'Program Cost', key: 'cost', width: 15 },
     { header: 'Paid or Free', key: 'paid_label', width: 12 },
+    { header: 'Service Entry', key: 'service_entry', width: 13 },
     { header: 'Per Diem', key: 'per_diem_label', width: 10 },
   ];
   sheet.getRow(1).font = { bold: true };
@@ -255,6 +270,7 @@ router.get('/monthly/export', asyncHandler(async (req, res) => {
       attendance_rate: r.nominee_count > 0 ? `${Math.round((r.attendee_count / r.nominee_count) * 100)}%` : '-',
       cost: r.cost,
       paid_label: r.paid ? 'Paid' : 'Free',
+      service_entry: r.service_entry,
       per_diem_label: r.per_diem ? 'Yes' : 'No',
     });
   });
@@ -264,7 +280,7 @@ router.get('/monthly/export', asyncHandler(async (req, res) => {
     'Content-Type',
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
   );
-  res.setHeader('Content-Disposition', `attachment; filename="training-report-${monthLabel}.xlsx"`);
+  res.setHeader('Content-Disposition', `attachment; filename="program-report-${monthLabel}.xlsx"`);
 
   await workbook.xlsx.write(res);
   res.end();
@@ -278,8 +294,8 @@ router.get('/monthly/attendees/export', asyncHandler(async (req, res) => {
   const sheet = workbook.addWorksheet('Attendee List');
 
   sheet.columns = [
-    { header: 'Training Name', key: 'training_name', width: 30 },
-    { header: 'Training Date', key: 'training_date', width: 15 },
+    { header: 'Program Name', key: 'training_name', width: 30 },
+    { header: 'Program Date', key: 'training_date', width: 15 },
     { header: 'Category', key: 'category', width: 16 },
     { header: 'Employee Name', key: 'employee_name', width: 24 },
     { header: 'Employee Number', key: 'employee_number', width: 16 },

@@ -34,7 +34,7 @@ async function main() {
   await User.create({
     username: normalizedUsername,
     name: name.trim(),
-    passwordHash: hashPassword(password),
+    password_hash: hashPassword(password),
     role,
   });
 

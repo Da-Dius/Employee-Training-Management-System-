@@ -51,6 +51,9 @@ export default function NomineeFormModal({
       return;
     }
 
+    // Picking an employee fills the search box with their name; don't search (and reopen the list) again
+    if (selectedEmployee && employeeSearch === (selectedEmployee.name || '')) return;
+
     const timer = setTimeout(async () => {
       try {
         setSearchingEmployees(true);
@@ -69,7 +72,7 @@ export default function NomineeFormModal({
     }, 300);
 
     return () => clearTimeout(timer);
-  }, [employeeSearch, show]);
+  }, [employeeSearch, show, selectedEmployee]);
 
   const handleEmployeeSelect = (employee) => {
     setSelectedEmployee(employee);
@@ -105,7 +108,7 @@ export default function NomineeFormModal({
     }
 
     if (excluded.has(form.employee_number)) {
-      setError('That employee is already a nominee on this training.');
+      setError('That employee is already a nominee on this program.');
       return;
     }
 

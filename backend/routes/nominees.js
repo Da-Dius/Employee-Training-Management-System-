@@ -2,21 +2,22 @@ const express = require('express');
 const multer = require('multer');
 const ExcelJS = require('exceljs');
 const {
-  mongoose, Training, Nominee, Employee, Notification, genToken, hasTrainingEnded,
+  mongoose, Training, Nominee, Employee, Notification, genToken, hasTrainingEnded, nairobiDateString,
 } = require('../db/database');
 const { sendNominationEmail, sendAttendanceCheckEmail } = require('../mailer');
+const { asyncHandler, isValidId } = require('../lib/http');
 
 const router = express.Router({ mergeParams: true });
 
-function asyncHandler(fn) {
-  return (req, res, next) => fn(req, res, next).catch(next);
-}
-
-function isValidId(id) {
-  return mongoose.Types.ObjectId.isValid(id);
-}
-
 const ATTENDANCE_STATUSES = ['Pending', 'Attended', 'Did Not Attend'];
+
+// Attendance opens once a training has started (so multi-day trainings can be marked as they
+// run); resetting a mark back to Pending is always allowed.
+async function attendanceNotOpenYet(trainingId, status) {
+  if (status === 'Pending') return false;
+  const training = await Training.findById(trainingId).select('training_date');
+  return !!training && training.training_date > nairobiDateString();
+}
 
 function serialize(doc) {
   return {
@@ -61,13 +62,18 @@ router.get('/', asyncHandler(async (req, res) => {
 }));
 
 router.post('/', asyncHandler(async (req, res) => {
-  if (!isValidId(req.params.trainingId)) return res.status(404).json({ error: 'Training not found' });
+  if (!isValidId(req.params.trainingId)) return res.status(404).json({ error: 'Program not found' });
   const training = await Training.findById(req.params.trainingId).select('_id');
-  if (!training) return res.status(404).json({ error: 'Training not found' });
+  if (!training) return res.status(404).json({ error: 'Program not found' });
 
   const { name, employee_number, department, division, section, station_region, email } = req.body;
   if (!name || !employee_number) {
     return res.status(400).json({ error: 'name and employee_number are required' });
+  }
+
+  const duplicate = await Nominee.exists({ training: req.params.trainingId, employee_number });
+  if (duplicate) {
+    return res.status(409).json({ error: 'That employee is already a nominee on this program' });
   }
 
   const doc = await Nominee.create({
@@ -86,9 +92,9 @@ router.post('/', asyncHandler(async (req, res) => {
 }));
 
 router.post('/import', importUpload.single('file'), asyncHandler(async (req, res) => {
-  if (!isValidId(req.params.trainingId)) return res.status(404).json({ error: 'Training not found' });
+  if (!isValidId(req.params.trainingId)) return res.status(404).json({ error: 'Program not found' });
   const training = await Training.findById(req.params.trainingId).select('_id');
-  if (!training) return res.status(404).json({ error: 'Training not found' });
+  if (!training) return res.status(404).json({ error: 'Program not found' });
   if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
 
   let workbook;
@@ -102,12 +108,11 @@ router.post('/import', importUpload.single('file'), asyncHandler(async (req, res
   const sheet = workbook.worksheets[0];
   if (!sheet) return res.status(400).json({ error: 'No worksheet found in file' });
 
-  const employeeNumbers = [];
+  const rows = [];
   sheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
-    if (rowNumber === 1) return;
-    const raw = row.getCell(1).value;
-    const employeeNumber = raw === null || raw === undefined ? '' : String(raw).trim();
-    if (employeeNumber) employeeNumbers.push(employeeNumber);
+    // .text is the displayed value, so rich-text and formula cells read correctly too
+    const employeeNumber = String(row.getCell(1).text ?? '').trim();
+    if (employeeNumber) rows.push({ employeeNumber, rowNumber });
   });
 
   const existingNominees = await Nominee.find({ training: req.params.trainingId }).select('employee_number');
@@ -116,14 +121,16 @@ router.post('/import', importUpload.single('file'), asyncHandler(async (req, res
   const imported = [];
   const skipped = [];
 
-  for (const employeeNumber of employeeNumbers) {
+  for (const { employeeNumber, rowNumber } of rows) {
     if (seen.has(employeeNumber)) {
-      skipped.push({ employee_number: employeeNumber, reason: 'Already a nominee for this training' });
+      skipped.push({ employee_number: employeeNumber, reason: 'Already a nominee for this program' });
       continue;
     }
 
     const employee = await Employee.findOne({ employee_number: employeeNumber });
     if (!employee) {
+      // The header row is optional: a first row that isn't an employee number is treated as the header
+      if (rowNumber === 1) continue;
       skipped.push({ employee_number: employeeNumber, reason: 'Not found in employee directory' });
       continue;
     }
@@ -148,12 +155,12 @@ router.post('/import', importUpload.single('file'), asyncHandler(async (req, res
 }));
 
 router.post('/request-attendance-confirmation', asyncHandler(async (req, res) => {
-  if (!isValidId(req.params.trainingId)) return res.status(404).json({ error: 'Training not found' });
+  if (!isValidId(req.params.trainingId)) return res.status(404).json({ error: 'Program not found' });
   const training = await Training.findById(req.params.trainingId).select('name training_date training_end_date');
-  if (!training) return res.status(404).json({ error: 'Training not found' });
+  if (!training) return res.status(404).json({ error: 'Program not found' });
 
   if (!hasTrainingEnded(training.training_date, training.training_end_date)) {
-    return res.status(400).json({ error: 'This training has not finished yet' });
+    return res.status(400).json({ error: 'This program has not finished yet' });
   }
 
   const nominees = await Nominee.find({
@@ -223,6 +230,9 @@ router.put('/:nomineeId', asyncHandler(async (req, res) => {
     if (existing.nomination_status === 'Declined') {
       return res.status(409).json({ error: 'This nominee declined the nomination — add a replacement instead' });
     }
+    if (await attendanceNotOpenYet(req.params.trainingId, attendance_status)) {
+      return res.status(409).json({ error: 'Attendance can only be recorded once the program has started' });
+    }
     existing.attendance_status = attendance_status;
   }
 
@@ -246,6 +256,9 @@ router.patch('/:nomineeId/attendance', asyncHandler(async (req, res) => {
   if (existing.nomination_status === 'Declined') {
     return res.status(409).json({ error: 'This nominee declined the nomination and is excluded from attendance' });
   }
+  if (await attendanceNotOpenYet(req.params.trainingId, attendance_status)) {
+    return res.status(409).json({ error: 'Attendance can only be recorded once the program has started' });
+  }
 
   existing.attendance_status = attendance_status;
   await existing.save();
@@ -258,7 +271,7 @@ router.post('/:nomineeId/send-confirmation', asyncHandler(async (req, res) => {
     return res.status(404).json({ error: 'Nominee not found' });
   }
   const training = await Training.findById(req.params.trainingId).select('name training_date training_end_date');
-  if (!training) return res.status(404).json({ error: 'Training not found' });
+  if (!training) return res.status(404).json({ error: 'Program not found' });
 
   const nominee = await Nominee.findOne({ _id: req.params.nomineeId, training: req.params.trainingId });
   if (!nominee) return res.status(404).json({ error: 'Nominee not found' });
@@ -271,14 +284,21 @@ router.post('/:nomineeId/send-confirmation', asyncHandler(async (req, res) => {
   const baseUrl = process.env.APP_BASE_URL || `${req.protocol}://${req.get('host')}`;
   const confirmUrl = `${baseUrl}/confirm.html?token=${nominee.confirmation_token}`;
 
-  await sendNominationEmail({
-    to: nominee.email,
-    nomineeName: nominee.name,
-    trainingName: training.name,
-    trainingDate: training.training_date,
-    trainingEndDate: training.training_end_date,
-    confirmUrl,
-  });
+  try {
+    await sendNominationEmail({
+      to: nominee.email,
+      nomineeName: nominee.name,
+      trainingName: training.name,
+      trainingDate: training.training_date,
+      trainingEndDate: training.training_end_date,
+      confirmUrl,
+    });
+  } catch (err) {
+    console.error('nomination email failed', nominee.email, err);
+    return res.status(502).json({
+      error: 'The email could not be sent. Check the email settings (GMAIL_USER and GMAIL_APP_PASSWORD) or copy the link instead.',
+    });
+  }
 
   nominee.link_sent_at = new Date();
   await nominee.save();
@@ -291,7 +311,7 @@ router.post('/:nomineeId/replace', asyncHandler(async (req, res) => {
     return res.status(404).json({ error: 'Nominee not found' });
   }
   const training = await Training.findById(req.params.trainingId).select('_id');
-  if (!training) return res.status(404).json({ error: 'Training not found' });
+  if (!training) return res.status(404).json({ error: 'Program not found' });
 
   const { name, employee_number, department, division, section, station_region, email } = req.body;
   if (!name || !employee_number) {
@@ -309,7 +329,7 @@ router.post('/:nomineeId/replace', asyncHandler(async (req, res) => {
     employee_number: employee_number,
   });
   if (duplicate) {
-    return res.status(409).json({ error: 'That employee is already a nominee on this training' });
+    return res.status(409).json({ error: 'That employee is already a nominee on this program' });
   }
 
   const replacementId = new mongoose.Types.ObjectId();
@@ -348,6 +368,7 @@ router.post('/:nomineeId/replace', asyncHandler(async (req, res) => {
   res.status(201).json({ replacement: serialize(replacement), replaced: serialize(claimed) });
 }));
 
+// Removing a nominee stays open to all HR staff: it is a routine correction to one training's list.
 router.delete('/:nomineeId', asyncHandler(async (req, res) => {
   if (!isValidId(req.params.trainingId) || !isValidId(req.params.nomineeId)) {
     return res.status(404).json({ error: 'Nominee not found' });

@@ -3,19 +3,26 @@ const BASE = '/api';
 async function request(url, options = {}) {
   const res = await fetch(url, options);
 
-  // Global 401 Interceptor: Kicks expired sessions back to login
-  if (res.status === 401 && url !== `${BASE}/auth/me`) {
-    window.location.href = '/login';
-    return new Promise(() => { });
-  }
   if (res.status === 204) return null;
 
   const isJson = (res.headers.get('content-type') || '').includes('application/json');
   const body = isJson ? await res.json() : null;
 
+  const path = (() => {
+    try { return new URL(url, window.location.origin).pathname; } catch { return url; }
+  })();
+
+  if (res.status === 401 && path !== `${BASE}/auth/me`) {
+    if (typeof window !== 'undefined' && path !== `${BASE}/auth/login`) {
+      window.location.replace('/login');
+    }
+    throw new Error((body && body.error) || 'Unauthorized');
+  }
+
   if (!res.ok) {
     throw new Error((body && body.error) || `Request failed (${res.status})`);
   }
+
   return body;
 }
 

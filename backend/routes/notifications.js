@@ -1,41 +1,37 @@
 const express = require('express');
-const { mongoose, Training, Notification } = require('../db/database');
+const { Training, Notification, nairobiDateString } = require('../db/database');
+const { asyncHandler, isValidId } = require('../lib/http');
 
 const router = express.Router();
-
-function asyncHandler(fn) {
-    return (req, res, next) => fn(req, res, next).catch(next);
-}
-
-function nairobiDateString(daysOffset = 0) {
-    const d = new Date(Date.now() + daysOffset * 86400000);
-    return new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Nairobi' }).format(d);
-}
 
 async function generateDueNotifications() {
     const todayStr = nairobiDateString(0);
     const tomorrowStr = nairobiDateString(1);
 
-    // Fixed to query the new snake_case 'training_date'
     const due = await Training.find({ training_date: { $in: [todayStr, tomorrowStr] } });
 
     await Promise.all(
-        due.map((t) => {
+        due.map(async (t) => {
             const isToday = t.training_date === todayStr;
             const message = `${t.name} starts ${isToday ? 'today' : 'tomorrow'}${t.venue ? ` at ${t.venue}` : ''}`;
-            return Notification.updateOne(
-                { type: 'training_starting', refId: t._id },
-                {
-                    $setOnInsert: {
-                        type: 'training_starting',
-                        refId: t._id,
-                        message,
-                        link: `/trainings/${t._id}`,
-                        read: false,
+            try {
+                await Notification.updateOne(
+                    { type: 'training_starting', refId: t._id },
+                    {
+                        $setOnInsert: {
+                            type: 'training_starting',
+                            refId: t._id,
+                            message,
+                            link: `/trainings/${t._id}`,
+                            read: false,
+                        },
                     },
-                },
-                { upsert: true }
-            );
+                    { upsert: true }
+                );
+            } catch (err) {
+                // Two HR users polling at the same moment can both try to insert it; one insert wins
+                if (err?.code !== 11000) throw err;
+            }
         })
     );
 }
@@ -58,7 +54,7 @@ router.get('/', asyncHandler(async (req, res) => {
 }));
 
 router.post('/:id/read', asyncHandler(async (req, res) => {
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+    if (!isValidId(req.params.id)) {
         return res.status(404).json({ error: 'Notification not found' });
     }
     await Notification.findByIdAndUpdate(req.params.id, { read: true });

@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Plus, Pencil, Trash2, X, ShieldAlert } from 'lucide-react';
+import { Plus, Pencil, Trash2, ShieldAlert } from 'lucide-react';
 import * as api from '../api/client';
 import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
+import Modal from '../components/Modal';
 import Spinner from '../components/Spinner';
 
 export default function DepartmentsPage() {
@@ -153,39 +154,35 @@ export default function DepartmentsPage() {
                 </table>
             </div>
 
-            {modalState.show && isAdmin && (
-                <div className="modal-backdrop">
-                    <div className="modal-content max-w-md">
-                        <div className="modal-header">
-                            <h2 className="text-lg font-semibold">{modalState.dept ? 'Edit Department' : 'New Department'}</h2>
-                            <button className="text-zinc-400 hover:text-zinc-600" onClick={handleCloseModal}>
-                                <X className="h-5 w-5" />
-                            </button>
-                        </div>
-                        <div className="modal-body">
-                            <form id="deptForm" onSubmit={handleSave}>
-                                <div className="mb-4">
-                                    <label className="form-label">Department Name</label>
-                                    <input
-                                        type="text"
-                                        className="form-input"
-                                        required
-                                        value={formName}
-                                        onChange={(e) => setFormName(e.target.value)}
-                                        placeholder="e.g. Finance"
-                                    />
-                                </div>
-                            </form>
-                        </div>
-                        <div className="modal-footer">
-                            <button type="button" className="btn btn-outline" onClick={handleCloseModal}>Cancel</button>
-                            <button type="submit" form="deptForm" className="btn btn-primary" disabled={saving}>
-                                {saving ? 'Saving...' : 'Save'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+            <Modal
+                show={modalState.show && isAdmin}
+                onClose={handleCloseModal}
+                title={modalState.dept ? 'Edit Department' : 'New Department'}
+                footer={
+                    <>
+                        <button type="button" className="btn btn-outline" onClick={handleCloseModal} disabled={saving}>
+                            Cancel
+                        </button>
+                        <button type="submit" form="deptForm" className="btn btn-primary" disabled={saving}>
+                            {saving ? 'Saving...' : 'Save'}
+                        </button>
+                    </>
+                }
+            >
+                <form id="deptForm" onSubmit={handleSave}>
+                    <label className="form-label" htmlFor="deptName">Department Name</label>
+                    <input
+                        id="deptName"
+                        type="text"
+                        className="form-input"
+                        required
+                        autoFocus
+                        value={formName}
+                        onChange={(e) => setFormName(e.target.value)}
+                        placeholder="e.g. Finance"
+                    />
+                </form>
+            </Modal>
         </>
     );
 }

@@ -10,16 +10,23 @@ import {
 } from 'lucide-react';
 
 import * as api from '../api/client';
+import { useAuth } from '../context/AuthContext';
 import Spinner from '../components/Spinner';
 import EmployeeFormModal from '../components/EmployeeFormModal';
+import Pagination, { paginate } from '../components/Pagination';
 
 export default function EmployeesPage() {
+    const { user } = useAuth();
+    const isAdmin = user?.role === 'admin';
+
     const [employees, setEmployees] = useState(null);
     const [error, setError] = useState('');
 
     const [search, setSearch] = useState('');
     const [department, setDepartment] =
         useState('');
+
+    const [page, setPage] = useState(1);
 
     const [modalOpen, setModalOpen] =
         useState(false);
@@ -46,6 +53,8 @@ export default function EmployeesPage() {
     };
 
     useEffect(() => {
+        setPage(1);
+
         const timer = setTimeout(() => {
             loadEmployees();
         }, 300);
@@ -66,7 +75,7 @@ export default function EmployeesPage() {
     const handleSave = async (form) => {
         if (editingEmployee) {
             await api.updateEmployee(
-                editingEmployee._id,
+                editingEmployee.id,
                 form
             );
         } else {
@@ -87,11 +96,11 @@ export default function EmployeesPage() {
         if (!confirmed) return;
 
         try {
-            setDeleteId(employee._id);
+            setDeleteId(employee.id);
             setError('');
 
             await api.deleteEmployee(
-                employee._id
+                employee.id
             );
 
             await loadEmployees();
@@ -107,6 +116,8 @@ export default function EmployeesPage() {
         setDepartment('');
     };
 
+    const { pageRows, currentPage, pageCount } = paginate(employees, page);
+
     return (
         <>
             <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
@@ -116,7 +127,7 @@ export default function EmployeesPage() {
                     </h1>
 
                     <p className="mt-1 text-sm text-slate-500">
-                        Manage employees available for training nominations.
+                        Manage employees available for program nominations.
                     </p>
                 </div>
 
@@ -239,108 +250,119 @@ export default function EmployeesPage() {
                         </button>
                     </div>
                 ) : (
-                    <div className="overflow-x-auto">
-                        <table className="table-clean">
-                            <thead>
-                                <tr>
-                                    <th>Employee Name</th>
-                                    <th>Employee No.</th>
-                                    <th>Email</th>
-                                    <th>Department</th>
-                                    <th>Division</th>
-                                    <th>Section</th>
-                                    <th>Station / Region</th>
-                                    <th className="text-right">
-                                        Actions
-                                    </th>
-                                </tr>
-                            </thead>
+                    <>
+                        <div className="overflow-x-auto">
+                            <table className="table-clean">
+                                <thead>
+                                    <tr>
+                                        <th>Employee Name</th>
+                                        <th>Employee No.</th>
+                                        <th>Email</th>
+                                        <th>Department</th>
+                                        <th>Division</th>
+                                        <th>Section</th>
+                                        <th>Station / Region</th>
+                                        <th className="text-right">
+                                            Actions
+                                        </th>
+                                    </tr>
+                                </thead>
 
-                            <tbody>
-                                {employees.map((employee) => (
-                                    <tr key={employee._id}>
-                                        <td>
-                                            <div className="flex items-center gap-3">
-                                                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-600">
-                                                    <Users
-                                                        className="h-4 w-4"
-                                                        strokeWidth={2}
-                                                    />
-                                                </span>
-
-                                                <span className="font-medium text-slate-900">
-                                                    {employee.name}
-                                                </span>
-                                            </div>
-                                        </td>
-
-                                        <td>
-                                            {employee.employee_number}
-                                        </td>
-
-                                        <td>
-                                            {employee.email || '-'}
-                                        </td>
-
-                                        <td>
-                                            {employee.department || '-'}
-                                        </td>
-
-                                        <td>
-                                            {employee.division || '-'}
-                                        </td>
-
-                                        <td>
-                                            {employee.section || '-'}
-                                        </td>
-
-                                        <td>
-                                            {employee.station_region || '-'}
-                                        </td>
-
-                                        <td className="text-right">
-                                            <div className="flex justify-end gap-2">
-                                                <button
-                                                    type="button"
-                                                    className="btn btn-outline btn-icon"
-                                                    title="Edit employee"
-                                                    onClick={() =>
-                                                        handleEdit(employee)
-                                                    }
-                                                >
-                                                    <Pencil
-                                                        className="h-4 w-4"
-                                                        strokeWidth={2}
-                                                    />
-                                                </button>
-
-                                                <button
-                                                    type="button"
-                                                    className="btn btn-outline btn-icon text-red-600 hover:border-red-200 hover:bg-red-50"
-                                                    title="Delete employee"
-                                                    disabled={
-                                                        deleteId === employee._id
-                                                    }
-                                                    onClick={() =>
-                                                        handleDelete(employee)
-                                                    }
-                                                >
-                                                    {deleteId === employee.id ? (
-                                                        <Spinner small />
-                                                    ) : (
-                                                        <Trash2
+                                <tbody>
+                                    {pageRows.map((employee) => (
+                                        <tr key={employee.id}>
+                                            <td>
+                                                <div className="flex items-center gap-3">
+                                                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-600">
+                                                        <Users
                                                             className="h-4 w-4"
                                                             strokeWidth={2}
                                                         />
+                                                    </span>
+
+                                                    <span className="font-medium text-slate-900">
+                                                        {employee.name}
+                                                    </span>
+                                                </div>
+                                            </td>
+
+                                            <td>
+                                                {employee.employee_number}
+                                            </td>
+
+                                            <td>
+                                                {employee.email || '-'}
+                                            </td>
+
+                                            <td>
+                                                {employee.department || '-'}
+                                            </td>
+
+                                            <td>
+                                                {employee.division || '-'}
+                                            </td>
+
+                                            <td>
+                                                {employee.section || '-'}
+                                            </td>
+
+                                            <td>
+                                                {employee.station_region || '-'}
+                                            </td>
+
+                                            <td className="text-right">
+                                                <div className="flex justify-end gap-2">
+                                                    <button
+                                                        type="button"
+                                                        className="btn btn-outline btn-icon"
+                                                        title="Edit employee"
+                                                        onClick={() =>
+                                                            handleEdit(employee)
+                                                        }
+                                                    >
+                                                        <Pencil
+                                                            className="h-4 w-4"
+                                                            strokeWidth={2}
+                                                        />
+                                                    </button>
+
+                                                    {isAdmin && (
+                                                        <button
+                                                            type="button"
+                                                            className="btn btn-outline btn-icon text-red-600 hover:border-red-200 hover:bg-red-50"
+                                                            title="Delete employee"
+                                                            disabled={
+                                                                deleteId === employee.id
+                                                            }
+                                                            onClick={() =>
+                                                                handleDelete(employee)
+                                                            }
+                                                        >
+                                                            {deleteId === employee.id ? (
+                                                                <Spinner small />
+                                                            ) : (
+                                                                <Trash2
+                                                                    className="h-4 w-4"
+                                                                    strokeWidth={2}
+                                                                />
+                                                            )}
+                                                        </button>
                                                     )}
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <Pagination
+                            page={currentPage}
+                            pageCount={pageCount}
+                            total={employees.length}
+                            onPageChange={setPage}
+                        />
+                    </>
                 )}
             </div>
 

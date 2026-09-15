@@ -4,15 +4,20 @@ import { Plus, X, Pencil, Trash2 } from 'lucide-react';
 import * as api from '../api/client';
 import { CATEGORIES, formatDate, formatMoney, statusBadgeClass } from '../utils';
 import { useToast } from '../context/ToastContext';
+import { useAuth } from '../context/AuthContext';
 import TrainingFormModal from '../components/TrainingFormModal';
+import Pagination, { paginate } from '../components/Pagination';
 import Spinner from '../components/Spinner';
 
 export default function TrainingsPage() {
   const navigate = useNavigate();
   const { showToast } = useToast();
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
   const [filters, setFilters] = useState({ name: '', category: '', date: '', department: '' });
   const [rows, setRows] = useState(null);
   const [error, setError] = useState('');
+  const [page, setPage] = useState(1);
   const [modalState, setModalState] = useState({ show: false, training: null });
   const debounceRef = useRef(null);
   const isFirstRun = useRef(true);
@@ -36,16 +41,17 @@ export default function TrainingsPage() {
       isFirstRun.current = false;
       return;
     }
+    setPage(1);
     clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => load(filters), 300);
     return () => clearTimeout(debounceRef.current);
   }, [filters, load]);
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Delete this training and all its nominees, attendance, and evidence? This cannot be undone.')) return;
+    if (!window.confirm('Delete this program and all its nominees, attendance, and evidence? This cannot be undone.')) return;
     try {
       await api.deleteTraining(id);
-      showToast('Training deleted');
+      showToast('Program deleted');
       load(filters);
     } catch (e) {
       showToast(e.message, 'danger');
@@ -55,21 +61,23 @@ export default function TrainingsPage() {
   const handleSave = async (data) => {
     if (modalState.training) {
       await api.updateTraining(modalState.training.id, data);
-      showToast('Training updated');
+      showToast('Program updated');
     } else {
       await api.createTraining(data);
-      showToast('Training created');
+      showToast('Program created');
     }
     setModalState({ show: false, training: null });
     load(filters);
   };
 
+  const { pageRows, currentPage, pageCount } = paginate(rows, page);
+
   return (
     <>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-xl font-semibold text-zinc-900">Trainings</h1>
+        <h1 className="text-xl font-semibold text-zinc-900">Programs</h1>
         <button className="btn btn-primary" onClick={() => setModalState({ show: true, training: null })}>
-          <Plus className="h-4 w-4" strokeWidth={2} />New Training
+          <Plus className="h-4 w-4" strokeWidth={2} />New Program
         </button>
       </div>
 
@@ -78,7 +86,7 @@ export default function TrainingsPage() {
           <input
             type="text"
             className="form-input sm:col-span-2"
-            placeholder="Search by training name"
+            placeholder="Search by program name"
             value={filters.name}
             onChange={(e) => setFilters({ ...filters, name: e.target.value })}
           />
@@ -122,7 +130,7 @@ export default function TrainingsPage() {
           <table className="table-clean">
             <thead>
               <tr>
-                <th>Training Name</th>
+                <th>Program Name</th>
                 <th>Category</th>
                 <th>Date</th>
                 <th>Venue</th>
@@ -151,13 +159,12 @@ export default function TrainingsPage() {
               {!error && rows && rows.length === 0 && (
                 <tr>
                   <td colSpan={9} className="py-8 text-center text-zinc-400">
-                    No trainings found.
+                    No programs found.
                   </td>
                 </tr>
               )}
               {!error &&
-                rows &&
-                rows.map((t) => (
+                pageRows.map((t) => (
                   <tr key={t.id} className="clickable-row" onClick={() => navigate(`/trainings/${t.id}`)}>
                     <td className="font-medium text-zinc-900">{t.name}</td>
                     <td>{t.category}</td>
@@ -186,13 +193,15 @@ export default function TrainingsPage() {
                         >
                           <Pencil className="h-4 w-4" strokeWidth={2} />
                         </button>
-                        <button
-                          className="btn btn-outline-danger btn-icon"
-                          title="Delete"
-                          onClick={() => handleDelete(t.id)}
-                        >
-                          <Trash2 className="h-4 w-4" strokeWidth={2} />
-                        </button>
+                        {isAdmin && (
+                          <button
+                            className="btn btn-outline-danger btn-icon"
+                            title="Delete"
+                            onClick={() => handleDelete(t.id)}
+                          >
+                            <Trash2 className="h-4 w-4" strokeWidth={2} />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -200,6 +209,9 @@ export default function TrainingsPage() {
             </tbody>
           </table>
         </div>
+        {!error && rows && (
+          <Pagination page={currentPage} pageCount={pageCount} total={rows.length} onPageChange={setPage} />
+        )}
       </div>
 
       <TrainingFormModal

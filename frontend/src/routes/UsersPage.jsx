@@ -199,7 +199,7 @@ export default function UsersPage() {
                         <span className="badge badge-slate">Staff</span>
                       )}
                     </td>
-                    <td>{formatDate(u.created_at.slice(0, 10))}</td>
+                    <td>{formatDate(u.created_at?.slice(0, 10))}</td>
                     {isAdmin && (
                       <td className="text-right">
                         <div className="flex justify-end gap-1">

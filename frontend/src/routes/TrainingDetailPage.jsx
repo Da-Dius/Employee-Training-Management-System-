@@ -16,7 +16,6 @@ import {
   FileText,
   User,
   FileSpreadsheet,
-  Download as DownloadIcon,
   FileUp,
   Mail,
   MailCheck,
@@ -24,8 +23,9 @@ import {
   ClipboardList,
 } from 'lucide-react';
 import * as api from '../api/client';
-import { formatDate, formatDateRange, formatMoney, nominationBadgeClass, statusBadgeClass } from '../utils';
+import { formatDateRange, formatMoney, nominationBadgeClass, statusBadgeClass } from '../utils';
 import { useToast } from '../context/ToastContext';
+import { useAuth } from '../context/AuthContext';
 import TrainingFormModal from '../components/TrainingFormModal';
 import NomineeFormModal from '../components/NomineeFormModal';
 import NomineeImportModal from '../components/NomineeImportModal';
@@ -34,6 +34,8 @@ import Spinner from '../components/Spinner';
 export default function TrainingDetailPage() {
   const { id } = useParams();
   const { showToast } = useToast();
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
   const [training, setTraining] = useState(null);
   const [nominees, setNominees] = useState([]);
   const [evidence, setEvidence] = useState([]);
@@ -55,14 +57,22 @@ export default function TrainingDetailPage() {
   }, [id]);
 
   const loadNominees = useCallback(async () => {
-    const rows = await api.listNominees(id);
-    setNominees(rows);
-  }, [id]);
+    try {
+      const rows = await api.listNominees(id);
+      setNominees(rows);
+    } catch (e) {
+      showToast(`Could not load nominees: ${e.message}`, 'danger');
+    }
+  }, [id, showToast]);
 
   const loadEvidence = useCallback(async () => {
-    const rows = await api.listEvidence(id);
-    setEvidence(rows);
-  }, [id]);
+    try {
+      const rows = await api.listEvidence(id);
+      setEvidence(rows);
+    } catch (e) {
+      showToast(`Could not load evidence files: ${e.message}`, 'danger');
+    }
+  }, [id, showToast]);
 
   useEffect(() => {
     loadTraining();
@@ -72,7 +82,7 @@ export default function TrainingDetailPage() {
 
   const handleSaveTraining = async (data) => {
     await api.updateTraining(id, data);
-    showToast('Training updated');
+    showToast('Program updated');
     setEditOpen(false);
     loadTraining();
   };
@@ -85,7 +95,7 @@ export default function TrainingDetailPage() {
   };
 
   const handleDeleteNominee = async (nomineeId) => {
-    if (!window.confirm('Remove this nominee from the training?')) return;
+    if (!window.confirm('Remove this nominee from the program?')) return;
     try {
       await api.deleteNominee(id, nomineeId);
       loadNominees();
@@ -244,7 +254,7 @@ export default function TrainingDetailPage() {
     <>
       <div className="mb-4">
         <Link to="/trainings" className="inline-flex items-center gap-1 text-sm text-zinc-600 hover:text-zinc-900 transition-colors">
-          <ArrowLeft className="h-4 w-4" strokeWidth={2} />Back to Trainings
+          <ArrowLeft className="h-4 w-4" strokeWidth={2} />Back to Programs
         </Link>
       </div>
 
@@ -273,7 +283,7 @@ export default function TrainingDetailPage() {
           <hr className="my-5 border-zinc-100" />
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
             <div>
-              <div className="text-xs text-zinc-500">Cost of Training</div>
+              <div className="text-xs text-zinc-500">Program Cost</div>
               <div className="font-semibold text-zinc-900">{formatMoney(training.cost)}</div>
             </div>
             <div>
@@ -288,7 +298,7 @@ export default function TrainingDetailPage() {
             </div>
             <div>
               <div className="mb-1 flex items-center gap-1 text-xs text-zinc-500">
-                <User className="h-3 w-3" strokeWidth={2} />Name of Trainer
+                <User className="h-3 w-3" strokeWidth={2} />Name of Facilitator
               </div>
               <div className="font-semibold text-zinc-900">{training.trainer_name || '-'}</div>
             </div>
@@ -308,7 +318,7 @@ export default function TrainingDetailPage() {
                   className="inline-flex items-center gap-1 text-sm font-medium text-brand hover:underline"
                 >
                   {training.lpo_attachment_name}
-                  <DownloadIcon className="h-3.5 w-3.5" strokeWidth={2} />
+                  <Download className="h-3.5 w-3.5" strokeWidth={2} />
                 </a>
               ) : (
                 <div className="font-semibold text-zinc-900">-</div>
@@ -486,9 +496,11 @@ export default function TrainingDetailPage() {
                   <a className="btn btn-outline btn-icon" href={api.evidenceDownloadUrl(id, ev.id)}>
                     <Download className="h-4 w-4" strokeWidth={2} />
                   </a>
-                  <button className="btn btn-outline-danger btn-icon" onClick={() => handleDeleteEvidence(ev.id)}>
-                    <Trash2 className="h-4 w-4" strokeWidth={2} />
-                  </button>
+                  {isAdmin && (
+                    <button className="btn btn-outline-danger btn-icon" title="Delete file" onClick={() => handleDeleteEvidence(ev.id)}>
+                      <Trash2 className="h-4 w-4" strokeWidth={2} />
+                    </button>
+                  )}
                 </div>
               </li>
             ))}

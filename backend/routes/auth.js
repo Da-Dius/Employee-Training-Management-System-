@@ -1,11 +1,19 @@
 const express = require('express');
 const { User, verifyPassword, hashPassword, getInviteCode } = require('../db/database');
 const authRateLimiter = require('../middleware/authRateLimiter');
+const { asyncHandler } = require('../lib/http');
 
 const router = express.Router();
 
-function asyncHandler(fn) {
-  return (req, res, next) => fn(req, res, next).catch(next);
+// Stores what requireAuth later checks: a password reset bumps session_version,
+// which ends every session started before it.
+function startSession(req, res, user, status) {
+  req.session.regenerate((err) => {
+    if (err) return res.status(500).json({ error: 'Could not start session' });
+    req.session.userId = user._id.toString();
+    req.session.sessionVersion = user.session_version;
+    res.status(status).json({ id: user._id, username: user.username, name: user.name, role: user.role });
+  });
 }
 
 router.get('/status', asyncHandler(async (req, res) => {
@@ -48,11 +56,7 @@ router.post('/signup', authRateLimiter, asyncHandler(async (req, res) => {
     role: isFirstAccount ? 'admin' : 'staff',
   });
 
-  req.session.regenerate((err) => {
-    if (err) return res.status(500).json({ error: 'Could not start session' });
-    req.session.userId = user._id.toString();
-    res.status(201).json({ id: user._id, username: user.username, name: user.name, role: user.role });
-  });
+  startSession(req, res, user, 201);
 }));
 
 router.post('/login', authRateLimiter, asyncHandler(async (req, res) => {
@@ -66,11 +70,7 @@ router.post('/login', authRateLimiter, asyncHandler(async (req, res) => {
     return res.status(401).json({ error: 'Invalid username or password' });
   }
 
-  req.session.regenerate((err) => {
-    if (err) return res.status(500).json({ error: 'Could not start session' });
-    req.session.userId = user._id.toString();
-    res.json({ id: user._id, username: user.username, name: user.name, role: user.role });
-  });
+  startSession(req, res, user, 200);
 }));
 
 router.post('/logout', (req, res) => {
@@ -84,8 +84,12 @@ router.get('/me', asyncHandler(async (req, res) => {
   if (!req.session || !req.session.userId) {
     return res.status(401).json({ error: 'Not signed in' });
   }
-  const user = await User.findById(req.session.userId).select('username name role');
-  if (!user) return res.status(401).json({ error: 'Not signed in' });
+  const user = await User.findById(req.session.userId).select('username name role session_version');
+  // Same check as requireAuth, otherwise a revoked session would look signed in here
+  // while every other request is rejected.
+  if (!user || (req.session.sessionVersion ?? 0) !== user.session_version) {
+    return res.status(401).json({ error: 'Not signed in' });
+  }
   res.json({ id: user._id, username: user.username, name: user.name, role: user.role });
 }));
 
