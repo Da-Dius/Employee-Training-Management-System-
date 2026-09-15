@@ -8,6 +8,7 @@ export default defineConfig({
     proxy: {
       '/api': 'http://localhost:3000',
       '/confirm.html': 'http://localhost:3000',
+      '/confirm.js': 'http://localhost:3000',
     },
   },
 });

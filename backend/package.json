@@ -17,6 +17,7 @@
     "express": "^4.19.2",
     "express-rate-limit": "^8.6.1",
     "express-session": "^1.18.1",
+    "helmet": "^8.3.0",
     "mongoose": "^9.8.1",
     "multer": "^2.4.0",
     "nodemailer": "^9.1.1"

@@ -1,6 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const session = require('express-session');
+const helmet = require('helmet');
 const { MongoStore } = require('connect-mongo');
 
 const path = require('node:path');
@@ -30,10 +31,36 @@ const frontendIndexHtml = path.join(frontendDist, 'index.html');
 
 app.set('trust proxy', 1);
 
+// Security headers. helmet's default Content-Security-Policy only runs scripts served by this
+// app (which is why confirm.html's logic lives in public/confirm.js) and allows styles and
+// fonts over https, which covers the Bootstrap CDN the confirmation page uses.
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        // Forcing https for every request would break plain-http local development
+        upgradeInsecureRequests: IS_PRODUCTION ? [] : null,
+      },
+    },
+  })
+);
+
 // 'simple' reads ?category[$ne]=x as a plain key, so query values can't become MongoDB operators
 app.set('query parser', 'simple');
 app.use(express.json());
 
+// Health check for Render (and uptime monitors): 200 only when the database answers.
+// Registered before sessions and auth so checks stay cheap and never need a login.
+app.get('/api/health', async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  try {
+    if (mongoose.connection.readyState !== 1) throw new Error('Database not connected');
+    await mongoose.connection.db.admin().ping();
+    res.json({ status: 'ok', database: 'connected' });
+  } catch {
+    res.status(503).json({ status: 'unavailable', database: 'disconnected' });
+  }
+});
 
 async function main() {
   // Wait for the connection itself (up to the driver's 30s server selection timeout) rather than
@@ -60,7 +87,7 @@ async function main() {
     })
   );
 
-  // confirm.html 
+  // confirm.html and confirm.js
   app.use(express.static(path.join(__dirname, 'public')));
 
   app.use(express.static(frontendDist));
