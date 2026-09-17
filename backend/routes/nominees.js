@@ -223,7 +223,7 @@ router.post('/request-attendance-confirmation', asyncHandler(async (req, res) =>
       continue;
     }
 
-    const confirmUrl = `${baseUrl}/attendance.html?token=${nominee.confirmation_token}`;
+    const confirmUrl = `${baseUrl}/confirm.html?token=${nominee.confirmation_token}`;
 
     try {
       await sendAttendanceCheckEmail(
