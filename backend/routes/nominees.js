@@ -61,6 +61,7 @@ router.get('/', asyncHandler(async (req, res) => {
   res.json(docs.map(serialize));
 }));
 
+// POST /api/trainings/:trainingId/nominees
 router.post('/', asyncHandler(async (req, res) => {
   if (!isValidId(req.params.trainingId)) return res.status(404).json({ error: 'Program not found' });
   const training = await Training.findById(req.params.trainingId).select('_id');
@@ -91,6 +92,7 @@ router.post('/', asyncHandler(async (req, res) => {
   res.status(201).json(serialize(doc));
 }));
 
+// POST /api/trainings/:trainingId/nominees/import
 router.post('/import', importUpload.single('file'), asyncHandler(async (req, res) => {
   if (!isValidId(req.params.trainingId)) return res.status(404).json({ error: 'Program not found' });
   const training = await Training.findById(req.params.trainingId).select('_id');
@@ -109,10 +111,34 @@ router.post('/import', importUpload.single('file'), asyncHandler(async (req, res
   if (!sheet) return res.status(400).json({ error: 'No worksheet found in file' });
 
   const rows = [];
+  let cols = { name: 1, empNum: 2, email: 3, dept: 4, div: 5, sec: 6, station: 7 };
+
   sheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
-    // .text is the displayed value, so rich-text and formula cells read correctly too
-    const employeeNumber = String(row.getCell(1).text ?? '').trim();
-    if (employeeNumber) rows.push({ employeeNumber, rowNumber });
+    if (rowNumber === 1) {
+      row.eachCell((cell, colNumber) => {
+        const header = String(cell.text || '').toLowerCase().trim();
+        if (['employee_number', 'employee number', 'id'].includes(header)) cols.empNum = colNumber;
+        if (['name', 'employee name', 'full name'].includes(header)) cols.name = colNumber;
+        if (['email', 'email address'].includes(header)) cols.email = colNumber;
+        if (['department'].includes(header)) cols.dept = colNumber;
+        if (['division'].includes(header)) cols.div = colNumber;
+        if (['section'].includes(header)) cols.sec = colNumber;
+        if (['station_region', 'station', 'region', 'station/region'].includes(header)) cols.station = colNumber;
+      });
+      return;
+    }
+
+    const employeeNumber = String(row.getCell(cols.empNum).text ?? '').trim();
+    const name = String(row.getCell(cols.name).text ?? '').trim();
+    const email = String(row.getCell(cols.email).text ?? '').trim();
+    const department = String(row.getCell(cols.dept).text ?? '').trim();
+    const division = String(row.getCell(cols.div).text ?? '').trim();
+    const section = String(row.getCell(cols.sec).text ?? '').trim();
+    const station_region = String(row.getCell(cols.station).text ?? '').trim();
+
+    if (employeeNumber) {
+      rows.push({ employeeNumber, name, email, department, division, section, station_region });
+    }
   });
 
   const existingNominees = await Nominee.find({ training: req.params.trainingId }).select('employee_number');
@@ -121,18 +147,35 @@ router.post('/import', importUpload.single('file'), asyncHandler(async (req, res
   const imported = [];
   const skipped = [];
 
-  for (const { employeeNumber, rowNumber } of rows) {
-    if (seen.has(employeeNumber)) {
-      skipped.push({ employee_number: employeeNumber, reason: 'Already a nominee for this program' });
+  for (const rowData of rows) {
+    if (seen.has(rowData.employeeNumber)) {
+      skipped.push({ employee_number: rowData.employeeNumber, reason: 'Already a nominee for this program' });
       continue;
     }
 
-    const employee = await Employee.findOne({ employee_number: employeeNumber });
+    let employee = await Employee.findOne({ employee_number: rowData.employeeNumber });
+
     if (!employee) {
-      // The header row is optional: a first row that isn't an employee number is treated as the header
-      if (rowNumber === 1) continue;
-      skipped.push({ employee_number: employeeNumber, reason: 'Not found in employee directory' });
-      continue;
+      if (!rowData.name) {
+        skipped.push({ employee_number: rowData.employeeNumber, reason: 'Cannot create new employee: Name is missing in Excel' });
+        continue;
+      }
+
+      try {
+        employee = await Employee.create({
+          employee_number: rowData.employeeNumber,
+          name: rowData.name,
+          email: rowData.email || undefined,
+          department: rowData.department || undefined,
+          division: rowData.division || undefined,
+          section: rowData.section || undefined,
+          station_region: rowData.station_region || undefined,
+        });
+      } catch (err) {
+        console.error("Failed to auto-create employee:", err);
+        skipped.push({ employee_number: rowData.employeeNumber, reason: 'System error while generating employee profile' });
+        continue;
+      }
     }
 
     const doc = await Nominee.create({
@@ -147,64 +190,68 @@ router.post('/import', importUpload.single('file'), asyncHandler(async (req, res
       confirmation_token: genToken(),
     });
 
-    seen.add(employeeNumber);
+    seen.add(rowData.employeeNumber);
     imported.push(serialize(doc));
   }
 
   res.status(201).json({ imported, skipped });
 }));
 
+
+// POST /api/trainings/:trainingId/nominees/request-attendance-confirmation
+// Notice how this sits right below /import, and ABOVE the /:nomineeId routes!
 router.post('/request-attendance-confirmation', asyncHandler(async (req, res) => {
-  if (!isValidId(req.params.trainingId)) return res.status(404).json({ error: 'Program not found' });
-  const training = await Training.findById(req.params.trainingId).select('name training_date training_end_date');
+  const { trainingId } = req.params;
+
+  if (!isValidId(trainingId)) return res.status(404).json({ error: 'Program not found' });
+  const training = await Training.findById(trainingId).select('name');
   if (!training) return res.status(404).json({ error: 'Program not found' });
 
-  if (!hasTrainingEnded(training.training_date, training.training_end_date)) {
-    return res.status(400).json({ error: 'This program has not finished yet' });
-  }
-
   const nominees = await Nominee.find({
-    training: req.params.trainingId,
+    training: trainingId,
     nomination_status: 'Accepted',
-  }).sort({ name: 1 });
-
-  if (nominees.length > 100) {
-    return res.status(400).json({ error: 'Too many recipients for one batch — use Copy All Links instead' });
-  }
+    attendance_status: 'Pending'
+  });
 
   const baseUrl = process.env.APP_BASE_URL || `${req.protocol}://${req.get('host')}`;
-  const sent = [];
-  const skipped = [];
+  let sentCount = 0;
+  let skippedCount = 0;
 
   for (const nominee of nominees) {
     if (!nominee.email) {
-      skipped.push({ name: nominee.name, reason: 'No work email on file' });
+      skippedCount++;
       continue;
     }
-    if (nominee.attendance_self_reported) {
-      skipped.push({ name: nominee.name, reason: 'Already answered' });
-      continue;
-    }
+
+    const confirmUrl = `${baseUrl}/attendance.html?token=${nominee.confirmation_token}`;
+
     try {
-      await sendAttendanceCheckEmail({
-        to: nominee.email,
-        nomineeName: nominee.name,
-        trainingName: training.name,
-        trainingDate: training.training_date,
-        trainingEndDate: training.training_end_date,
-        confirmUrl: `${baseUrl}/confirm.html?token=${nominee.confirmation_token}`,
-      });
+      await sendAttendanceCheckEmail(
+        nominee.email,
+        nominee.name,
+        training.name,
+        confirmUrl
+      );
+
       nominee.attendance_request_sent_at = new Date();
       await nominee.save();
-      sent.push(serialize(nominee));
+      sentCount++;
     } catch (err) {
-      console.error('attendance check email failed', nominee.email, err);
-      skipped.push({ name: nominee.name, reason: 'Email failed to send' });
+      console.error(`Failed to send email to ${nominee.email}:`, err);
+      skippedCount++;
     }
   }
 
-  res.json({ sent, skipped });
+  res.json({
+    message: `Success! Sent ${sentCount} emails. Skipped ${skippedCount} (missing email or failed).`
+  });
 }));
+
+
+// ---------------------------------------------------------
+// DYNAMIC PARAMETER ROUTES BELOW THIS LINE (/:nomineeId)
+// ---------------------------------------------------------
+
 
 router.put('/:nomineeId', asyncHandler(async (req, res) => {
   if (!isValidId(req.params.trainingId) || !isValidId(req.params.nomineeId)) {
@@ -368,7 +415,6 @@ router.post('/:nomineeId/replace', asyncHandler(async (req, res) => {
   res.status(201).json({ replacement: serialize(replacement), replaced: serialize(claimed) });
 }));
 
-// Removing a nominee stays open to all HR staff: it is a routine correction to one training's list.
 router.delete('/:nomineeId', asyncHandler(async (req, res) => {
   if (!isValidId(req.params.trainingId) || !isValidId(req.params.nomineeId)) {
     return res.status(404).json({ error: 'Nominee not found' });

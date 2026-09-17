@@ -1,163 +1,66 @@
-// Employee confirmation page logic. Kept in its own file (not inline in confirm.html) so the
-// Content-Security-Policy set by helmet can forbid inline scripts.
+const urlParams = new URLSearchParams(window.location.search);
+const token = urlParams.get('token');
 
-function escapeHtml(str) {
-  if (str === null || str === undefined) return '';
-  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+const titleEl = document.getElementById('title');
+const messageEl = document.getElementById('message');
+const actionButtons = document.getElementById('action-buttons');
+const declineSection = document.getElementById('decline-section');
+
+if (!token) {
+  titleEl.textContent = 'Invalid Link';
+  titleEl.className = 'error';
+  messageEl.textContent = 'This link is missing a security token. Please check your email and try clicking the link again.';
+  actionButtons.style.display = 'none';
 }
 
-async function init() {
-  const params = new URLSearchParams(location.search);
-  const token = params.get('token');
-  const content = document.getElementById('content');
+// Make these available globally for the HTML onclick handlers
+window.showDeclineForm = function () {
+  declineSection.style.display = 'block';
+  actionButtons.style.display = 'none';
+}
 
-  if (!token) {
-    content.innerHTML = '<div class="alert alert-danger mb-0">Missing confirmation token. Please use the link provided by HR.</div>';
-    return;
+window.submitResponse = async function (action) {
+  let reason = '';
+  if (action === 'decline') {
+    reason = document.getElementById('reason').value.trim();
+    if (!reason) {
+      alert('Please provide a reason for declining.');
+      return;
+    }
   }
 
-  let data;
+  const buttons = document.querySelectorAll('button');
+  buttons.forEach(b => b.disabled = true);
+  titleEl.textContent = 'Saving...';
+  titleEl.className = '';
+
   try {
-    const res = await fetch(`/api/confirm/${encodeURIComponent(token)}`);
-    data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Invalid link');
-  } catch (e) {
-    content.innerHTML = `<div class="alert alert-danger mb-0">${escapeHtml(e.message)}</div>`;
-    return;
-  }
-
-  const { nominee, training } = data;
-
-  const header = `
-    <h5 class="mb-1"><i class="bi bi-mortarboard-fill me-2"></i>${escapeHtml(training.name)}</h5>
-    <p class="text-muted mb-3">${escapeHtml(training.training_date)}${training.training_end_date && training.training_end_date !== training.training_date ? ` &ndash; ${escapeHtml(training.training_end_date)}` : ''} &middot; ${escapeHtml(training.venue || '')}</p>`;
-
-  const emailField = `
-    <div class="mb-3">
-      <label class="form-label" for="workEmail">Work Email</label>
-      <input type="email" class="form-control" id="workEmail" required placeholder="you@company.com">
-    </div>`;
-
-  // --- Terminal states first: nothing left for this person to decide. ---
-
-  if (nominee.nomination_status === 'Declined') {
-    content.innerHTML = header + `
-      <div class="alert alert-secondary mb-0">
-        <strong>You declined this nomination.</strong>
-        ${nominee.decline_reason ? `<div class="mt-2 small">Reason given: ${escapeHtml(nominee.decline_reason)}</div>` : ''}
-        <div class="mt-2 small text-muted">HR has been notified and may nominate someone in your place.</div>
-      </div>`;
-    return;
-  }
-
-  if (nominee.attendance_self_reported) {
-    const attended = nominee.attendance_status === 'Attended';
-    content.innerHTML = header + `
-      <div class="text-center">
-        <i class="bi ${attended ? 'bi-check-circle-fill text-success' : 'bi-dash-circle-fill text-secondary'} status-icon"></i>
-        <h5 class="mt-3">Thank you, ${escapeHtml(nominee.name)}</h5>
-        <p class="text-muted mb-0">You told us you ${attended ? 'attended' : 'did not attend'} this program.</p>
-      </div>`;
-    return;
-  }
-
-  if (nominee.nomination_status === 'Accepted' && !training.has_ended) {
-    content.innerHTML = header + `
-      <div class="text-center">
-        <i class="bi bi-check-circle-fill text-success status-icon"></i>
-        <h5 class="mt-3">You're confirmed</h5>
-        <p class="text-muted mb-0">Thanks ${escapeHtml(nominee.name)} — we'll see you on ${escapeHtml(training.training_date)}.</p>
-      </div>`;
-    return;
-  }
-
-  if (nominee.nomination_status === 'Pending' && training.has_ended) {
-    content.innerHTML = header + `
-      <div class="alert alert-warning mb-0">
-        This program has already taken place and no response was recorded against your
-        nomination. Please contact HR.
-      </div>`;
-    return;
-  }
-
-  // --- Question states. ---
-
-  // Step 2: accepted the nomination and the program is over — did they actually go?
-  if (nominee.nomination_status === 'Accepted') {
-    content.innerHTML = header + `
-      <p>Hello <strong>${escapeHtml(nominee.name)}</strong>, this program has now taken place.
-         Please confirm whether you attended, using your work email.</p>
-      ${emailField}
-      <div class="d-grid gap-2">
-        <button type="button" class="btn btn-primary" data-action="attended">Yes, I attended</button>
-        <button type="button" class="btn btn-outline-secondary" data-action="did_not_attend">No, I did not attend</button>
-      </div>
-      <div id="formMsg" class="mt-3"></div>`;
-    wireActions();
-    return;
-  }
-
-  // Step 1: the nomination itself.
-  content.innerHTML = header + `
-    <p>Hello <strong>${escapeHtml(nominee.name)}</strong>, you have been nominated for this program.
-       Please accept or decline, using your work email.</p>
-    ${emailField}
-    <div class="d-grid gap-2">
-      <button type="button" class="btn btn-primary" data-action="accept">Accept &mdash; I will attend</button>
-      <button type="button" class="btn btn-outline-danger" id="declineBtn">Decline</button>
-    </div>
-    <div id="declineBox" class="mt-3 d-none">
-      <label class="form-label" for="declineReason">Reason (optional)</label>
-      <textarea class="form-control" id="declineReason" rows="2" maxlength="500"></textarea>
-      <button type="button" class="btn btn-danger w-100 mt-2" data-action="decline">Confirm decline</button>
-    </div>
-    <div id="formMsg" class="mt-3"></div>`;
-
-  // Declining is terminal and irreversible, so the first click only reveals the reason
-  // box — a single mis-click must never commit it.
-  document.getElementById('declineBtn').addEventListener('click', () => {
-    document.getElementById('declineBox').classList.remove('d-none');
-    document.getElementById('declineBtn').classList.add('d-none');
-    document.getElementById('formMsg').innerHTML = '';
-  });
-
-  wireActions();
-
-  function wireActions() {
-    const buttons = [...content.querySelectorAll('[data-action]')];
-    buttons.forEach((btn) => {
-      btn.addEventListener('click', async () => {
-        const msg = document.getElementById('formMsg');
-        const workEmail = document.getElementById('workEmail').value.trim();
-        msg.innerHTML = '';
-        if (!workEmail) {
-          msg.innerHTML = '<div class="alert alert-danger mb-0">Please enter your work email.</div>';
-          return;
-        }
-
-        buttons.forEach((b) => { b.disabled = true; });
-        const reasonEl = document.getElementById('declineReason');
-
-        try {
-          const res = await fetch(`/api/confirm/${encodeURIComponent(token)}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              action: btn.dataset.action,
-              work_email: workEmail,
-              decline_reason: reasonEl ? reasonEl.value : undefined,
-            }),
-          });
-          const body = await res.json();
-          if (!res.ok) throw new Error(body.error || 'Could not record your response');
-          init();
-        } catch (err) {
-          buttons.forEach((b) => { b.disabled = false; });
-          msg.innerHTML = `<div class="alert alert-danger mb-0">${escapeHtml(err.message)}</div>`;
-        }
-      });
+    const response = await fetch('/api/confirm', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, action, reason })
     });
+
+    const data = await response.json();
+
+    if (response.ok) {
+      actionButtons.style.display = 'none';
+      declineSection.style.display = 'none';
+      titleEl.textContent = 'Response Recorded!';
+      titleEl.className = 'success';
+      messageEl.textContent = action === 'accept'
+        ? 'Thank you! Your acceptance has been recorded in the HR system.'
+        : 'Your decline reason has been forwarded to the HR department.';
+    } else {
+      titleEl.textContent = 'Error';
+      titleEl.className = 'error';
+      messageEl.textContent = data.error || 'An error occurred while saving your response.';
+      buttons.forEach(b => b.disabled = false);
+    }
+  } catch (error) {
+    titleEl.textContent = 'Network Error';
+    titleEl.className = 'error';
+    messageEl.textContent = 'Could not connect to the server. Please check your internet connection.';
+    buttons.forEach(b => b.disabled = false);
   }
 }
-
-init();

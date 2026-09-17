@@ -27,7 +27,7 @@ router.get('/', asyncHandler(async (req, res) => {
 
     const employees = await Employee
         .find(filter)
-        .sort({ name: 1 })
+        .sort({ employee_number: 1 })
         .lean();
 
     // Mongoose virtuals don't apply to .lean(), so we manually map 'id'

@@ -5,6 +5,7 @@ import * as api from '../api/client';
 import { formatDate, formatDateRange, nominationBadgeClass } from '../utils';
 import { useToast } from '../context/ToastContext';
 import Spinner from '../components/Spinner';
+import { Mail } from 'lucide-react';
 
 export default function AttendancePage() {
     const { id } = useParams();
@@ -69,6 +70,18 @@ export default function AttendancePage() {
         }
     };
 
+    const handleSendRequests = async () => {
+        if (!window.confirm('Send attendance confirmation emails to all accepted nominees?')) return;
+
+        try {
+            const res = await api.requestAttendanceConfirmations(id);
+            showToast(res.message || 'Emails sent successfully');
+            loadNominees(); // Refresh the data
+        } catch (e) {
+            showToast(e.message, 'danger');
+        }
+    };
+
     if (error) return <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>;
 
     if (!training || nominees === null) {
@@ -120,6 +133,9 @@ export default function AttendancePage() {
                             </div>
                         </div>
                         <div className="flex gap-2 print:hidden">
+                            <button className="btn btn-outline btn-sm" onClick={handleSendRequests}>
+                                <Mail className="h-4 w-4" strokeWidth={2} /> Request Confirmations
+                            </button>
                             <button
                                 className="btn btn-outline btn-sm"
                                 onClick={handleMarkAllAttended}

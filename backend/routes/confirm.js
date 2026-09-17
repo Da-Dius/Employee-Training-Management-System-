@@ -135,4 +135,21 @@ router.post('/:token', confirmRateLimiter, asyncHandler(async (req, res) => {
   res.json({ ...serializeNominee(updated), already: false });
 }));
 
+// POST /api/confirm/attendance
+router.post('/attendance', asyncHandler(async (req, res) => {
+  const { token } = req.body;
+  if (!token) return res.status(400).json({ error: 'Missing token' });
+
+  const nominee = await Nominee.findOne({ confirmation_token: token });
+  if (!nominee) return res.status(404).json({ error: 'Invalid or expired check-in link.' });
+
+  // Update status securely
+  nominee.attendance_status = 'Attended';
+  nominee.attendance_self_reported = true;
+  nominee.attendance_responded_at = new Date();
+  await nominee.save();
+
+  res.json({ message: 'Your attendance has been successfully recorded!' });
+}));
+
 module.exports = router;

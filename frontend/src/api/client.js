@@ -19,11 +19,18 @@ async function request(url, options = {}) {
     try { return new URL(url, window.location.origin).pathname; } catch { return url; }
   })();
 
-  if (res.status === 401 && path !== `${BASE}/auth/me`) {
-    if (typeof window !== 'undefined' && path !== `${BASE}/auth/login`) {
-      window.location.replace('/login');
+  // Global 401 Session Expiration Interceptor
+  if (res.status === 401) {
+    const isAuthCheck = path === `${BASE}/auth/me` || path === `${BASE}/auth/status` || path === `${BASE}/auth/login`;
+
+    if (typeof window !== 'undefined' && !isAuthCheck) {
+      if (window.location.pathname !== '/login') {
+        localStorage.removeItem('user');
+        sessionStorage.clear();
+        window.location.replace('/login?expired=true');
+      }
     }
-    throw new Error((body && body.error) || 'Unauthorized');
+    throw new Error((body && body.error) || 'Your session has expired. Please log in again.');
   }
 
   if (!res.ok) {

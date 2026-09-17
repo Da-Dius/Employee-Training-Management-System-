@@ -75,4 +75,34 @@ async function sendAttendanceCheckEmail({ to, nomineeName, trainingName, trainin
     });
 }
 
+async function sendAttendanceCheckEmail(to, nomineeName, trainingName, confirmUrl) {
+    const mailOptions = {
+        from: `"HR Training Portal" <${process.env.GMAIL_USER}>`,
+        to: to,
+        subject: `Attendance Confirmation Required: ${trainingName}`,
+        html: `
+            <div style="font-family: system-ui, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; border: 1px solid #e5e7eb; border-radius: 8px;">
+                <h2 style="color: #111827; margin-top: 0;">Training Check-In</h2>
+                <p style="color: #374151; font-size: 16px;">Hello <b>${nomineeName}</b>,</p>
+                <p style="color: #374151; font-size: 16px;">
+                    Please confirm your attendance for the following training program: <br>
+                    <strong>${trainingName}</strong>
+                </p>
+                
+                <div style="text-align: center; margin: 30px 0;">
+                    <a href="${confirmUrl}" style="background-color: #10b981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 16px; display: inline-block;">
+                        ✅ Yes, I Attended
+                    </a>
+                </div>
+
+                <p style="color: #6b7280; font-size: 14px; margin-bottom: 0;">
+                    If you did not attend this training, no action is required.
+                </p>
+            </div>
+        `,
+    };
+
+    return transporter.sendMail(mailOptions);
+}
+
 module.exports = { sendNominationEmail, sendAttendanceCheckEmail };
